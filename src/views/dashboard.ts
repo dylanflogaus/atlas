@@ -7,9 +7,11 @@ import {
   type Voter,
 } from '../data'
 import {
+  clearDashboardCanvassRoute,
   flyDashboardMapForSectorLabel,
   invalidateDashboardMapSize,
   mountDashboardMap,
+  runDashboardCanvassRoute,
 } from '../map/dashboardMap'
 import { navigate } from '../router'
 import { cardAccent, priorityTargetBodyHtml } from './priorityTargetMarkup'
@@ -33,7 +35,7 @@ function dashboardPriorityCard(v: Voter): string {
       <a href="#/voters/${v.id}" class="inline-flex items-center gap-1 text-sm font-medium text-primary underline-offset-2 hover:underline mt-1 w-fit">
         Open voter file<span class="text-[0.92em] opacity-90" aria-hidden="true">→</span>
       </a>
-      <button type="button" data-goto="/log/${v.id}" class="w-full mt-3 bg-gradient-to-b from-primary to-primary-container text-on-primary font-black py-3 text-xs tracking-widest uppercase rounded-lg active:scale-[0.98] transition-transform shadow-sm">
+      <button type="button" data-dashboard-route="${v.id.replace(/"/g, '&quot;')}" class="w-full mt-3 bg-gradient-to-b from-primary to-primary-container text-on-primary font-black py-3 text-xs tracking-widest uppercase rounded-lg active:scale-[0.98] transition-transform shadow-sm">
         Start Route
       </button>
     </article>`
@@ -252,6 +254,7 @@ function applyDashboardSectorSelection(root: HTMLElement, value: string): void {
   }
   updateSectorListSelection(root, value)
   updatePriorityCarousel(root, value)
+  clearDashboardCanvassRoute()
   flyDashboardMapForSectorLabel(value)
 }
 
@@ -262,9 +265,19 @@ function syncPriorityCarouselChrome(root: HTMLElement): void {
   if (!carousel || !prev || !next) return
 
   const show = carousel.scrollWidth > carousel.clientWidth + 8
-  prev.style.display = show ? 'inline-flex' : 'none'
-  next.style.display = show ? 'inline-flex' : 'none'
-  if (!show) return
+  if (!show) {
+    prev.style.display = 'none'
+    next.style.display = 'none'
+    return
+  }
+
+  const maxScrollLeft = Math.max(0, carousel.scrollWidth - carousel.clientWidth)
+  // Give edge detection a little tolerance for fractional/smooth scroll positions.
+  const edgeThresholdPx = 16
+  const atStart = carousel.scrollLeft <= edgeThresholdPx
+  const atEnd = carousel.scrollLeft >= maxScrollLeft - edgeThresholdPx
+  prev.style.display = atStart ? 'none' : 'inline-flex'
+  next.style.display = atEnd ? 'none' : 'inline-flex'
 
   const gap = () => Math.max(280, carousel.clientWidth * 0.72)
   prev.onclick = (e) => {
@@ -287,6 +300,15 @@ export function bindDashboard(root: HTMLElement): void {
   root.addEventListener(
     'click',
     (e) => {
+      const routeBtn = (e.target as HTMLElement).closest<HTMLElement>('[data-dashboard-route]')
+      if (routeBtn) {
+        const mapEl = root.querySelector<HTMLElement>('#atlas-dashboard-map')
+        if (mapEl?.contains(routeBtn)) return
+        e.preventDefault()
+        const vid = routeBtn.dataset.dashboardRoute?.trim()
+        void runDashboardCanvassRoute(vid || undefined)
+        return
+      }
       const t = (e.target as HTMLElement).closest<HTMLElement>('[data-goto]')
       if (!t) return
       e.preventDefault()

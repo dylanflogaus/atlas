@@ -534,6 +534,11 @@
   box-shadow: 0 14px 40px rgb(0 0 0 / 0.22);
 }
 
+/* Canvass route (Start Route) — lives in atlasRoutePane (z-index 650) */
+#atlas-dashboard-map .atlas-dashboard-route-pulse {
+  pointer-events: none;
+}
+
 /* Party chip (upper right) — inset from edge so it clears the close control */
 #atlas-dashboard-map .atlas-map-popup-wrap .atlas-map-popup-card > div:first-child {
   padding-right: 2.75rem;

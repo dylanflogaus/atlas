@@ -840,7 +840,8 @@ export function getPriorityTargets(): Voter[] {
   return priorityTargetIds.map((id) => getVoter(id)).filter((v): v is Voter => v != null)
 }
 
-function nearestRepresentativeDistrictIndex(lat: number, lng: number): number {
+/** State house district index (0-based), aligned with `representativeDistrictMapCentroids`. */
+export function houseDistrictIndexAtLatLng(lat: number, lng: number): number {
   let nearest = 0
   let minDistanceSq = Number.POSITIVE_INFINITY
   for (let i = 0; i < representativeDistrictMapCentroids.length; i++) {
@@ -856,6 +857,18 @@ function nearestRepresentativeDistrictIndex(lat: number, lng: number): number {
   return nearest
 }
 
+/** Pins in the selected sector (or all pins for statewide sweep). */
+export function getDelawareHousePinsForDashboardSector(sectorLabel: string): DelawareHousePin[] {
+  const districtMatch = sectorLabel.match(/District\s+(\d+)/i)
+  const districtIndex = districtMatch ? Number(districtMatch[1]) - 1 : Number.NaN
+  if (!Number.isFinite(districtIndex) || districtIndex < 0) {
+    return [...delawareVerifiedHousePins]
+  }
+  return delawareVerifiedHousePins.filter(
+    (pin) => houseDistrictIndexAtLatLng(pin.lat, pin.lng) === districtIndex,
+  )
+}
+
 export function getPriorityTargetsForSector(sectorLabel: string): Voter[] {
   const districtMatch = sectorLabel.match(/District\s+(\d+)/i)
   const districtIndex = districtMatch ? Number(districtMatch[1]) - 1 : Number.NaN
@@ -865,7 +878,7 @@ export function getPriorityTargetsForSector(sectorLabel: string): Voter[] {
 
   const sectorVoterIds = new Set<string>()
   for (const pin of delawareVerifiedHousePins) {
-    if (nearestRepresentativeDistrictIndex(pin.lat, pin.lng) === districtIndex) {
+    if (houseDistrictIndexAtLatLng(pin.lat, pin.lng) === districtIndex) {
       sectorVoterIds.add(pin.voterId)
     }
   }

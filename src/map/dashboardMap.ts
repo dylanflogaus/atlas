@@ -4,7 +4,9 @@ import {
   dashboardMapConfig,
   dashboardStats,
   delawareVerifiedHousePins,
+  getDelawareHousePinsForDashboardSector,
   getVoter,
+  houseDistrictIndexAtLatLng,
   readDashboardSectorSelection,
   representativeDistrictMapCentroids,
   type DelawareHousePin,
@@ -12,6 +14,9 @@ import {
 import { cardAccent, priorityTargetBodyHtml } from '../views/priorityTargetMarkup'
 
 const DASHBOARD_MAP_VIEW_STORAGE_KEY = 'atlas-dashboard-map-view'
+
+/** Above default tiles/markers so the canvass route stays readable. */
+const ATLAS_ROUTE_PANE = 'atlasRoutePane'
 
 /** Zoom when a house district is selected — high enough that tactical pins read clearly. */
 const REPRESENTATIVE_DISTRICT_FOCUS_ZOOM = 16
@@ -26,6 +31,136 @@ const PIN_COLORS: Record<string, string> = {
 }
 
 let teardown: (() => void) | null = null
+
+/** Cleared layers + route UI; lives for one map mount. */
+let routeLayerGroup: L.LayerGroup | null = null
+let routePulseMarker: L.CircleMarker | null = null
+let routeAnimToken = 0
+
+const OSRM_MAX_WAYPOINTS = 26
+const OSRM_REQUEST_TIMEOUT_MS = 7000
+const ROUTE_PROVIDERS = [
+  { kind: 'osrm-get', endpoint: 'https://router.project-osrm.org/route/v1/driving/' },
+  { kind: 'valhalla-osrm', endpoint: 'https://valhalla1.openstreetmap.de/route' },
+] as const
+
+function pinDistSq(a: DelawareHousePin, b: DelawareHousePin): number {
+  const dLat = a.lat - b.lat
+  const dLng = a.lng - b.lng
+  return dLat * dLat + dLng * dLng
+}
+
+/** Greedy nearest-neighbor tour — reasonable heuristic for short canvass loops. */
+function orderPinsNearestNeighbor(pins: DelawareHousePin[], start: DelawareHousePin): DelawareHousePin[] {
+  const remaining = pins.filter((p) => p !== start)
+  const ordered: DelawareHousePin[] = [start]
+  let current = start
+  while (remaining.length) {
+    let bestI = 0
+    let bestD = Infinity
+    for (let i = 0; i < remaining.length; i++) {
+      const d = pinDistSq(current, remaining[i])
+      if (d < bestD) {
+        bestD = d
+        bestI = i
+      }
+    }
+    current = remaining.splice(bestI, 1)[0]
+    ordered.push(current)
+  }
+  return ordered
+}
+
+async function fetchOsrmDrivingGeometry(latlngs: L.LatLngTuple[]): Promise<L.LatLngTuple[] | null> {
+  if (latlngs.length < 2) return null
+  const slice = latlngs.slice(0, OSRM_MAX_WAYPOINTS)
+  const coordStr = slice.map(([lat, lng]) => `${lng},${lat}`).join(';')
+  const suffix = `${coordStr}?overview=full&geometries=geojson`
+
+  for (const provider of ROUTE_PROVIDERS) {
+    try {
+      const res =
+        provider.kind === 'osrm-get'
+          ? await fetch(`${provider.endpoint}${suffix}`, {
+              signal: AbortSignal.timeout(OSRM_REQUEST_TIMEOUT_MS),
+            })
+          : await fetch(provider.endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                locations: slice.map(([lat, lng]) => ({ lat, lon: lng })),
+                costing: 'auto',
+                format: 'osrm',
+                shape_format: 'geojson',
+              }),
+              signal: AbortSignal.timeout(OSRM_REQUEST_TIMEOUT_MS),
+            })
+      if (!res.ok) continue
+      const data = (await res.json()) as {
+        routes?: { geometry?: { coordinates?: [number, number][] } }[]
+      }
+      const coords = data.routes?.[0]?.geometry?.coordinates
+      if (!Array.isArray(coords) || coords.length < 2) continue
+      return coords.map((c) => [c[1], c[0]] as L.LatLngTuple)
+    } catch {
+      // Try next provider.
+    }
+  }
+  return null
+}
+
+function interpolateAlongPolyline(path: L.LatLngTuple[], t: number): L.LatLng {
+  if (path.length === 0) return L.latLng(0, 0)
+  if (path.length === 1) return L.latLng(path[0])
+  const latlngs = path.map((p) => L.latLng(p[0], p[1]))
+  let total = 0
+  const legLens: number[] = []
+  for (let i = 0; i < latlngs.length - 1; i++) {
+    const d = latlngs[i].distanceTo(latlngs[i + 1])
+    legLens.push(d)
+    total += d
+  }
+  if (total <= 0) return latlngs[0]
+  let dist = Math.max(0, Math.min(1, t)) * total
+  for (let i = 0; i < legLens.length; i++) {
+    const leg = legLens[i]
+    if (dist <= leg || i === legLens.length - 1) {
+      const f = leg > 0 ? Math.min(1, dist / leg) : 0
+      const a = latlngs[i]
+      const b = latlngs[i + 1]
+      return L.latLng(a.lat + (b.lat - a.lat) * f, a.lng + (b.lng - a.lng) * f)
+    }
+    dist -= leg
+  }
+  return latlngs[latlngs.length - 1]
+}
+
+function animatePulseAlongRoute(path: L.LatLngTuple[], durationMs: number, token: number): void {
+  routePulseMarker?.remove()
+  if (path.length < 2) return
+  routePulseMarker = L.circleMarker(path[0], {
+    radius: 7,
+    color: '#ffffff',
+    weight: 2,
+    fillColor: '#c8102e',
+    fillOpacity: 1,
+    opacity: 1,
+    className: 'atlas-dashboard-route-pulse',
+    pane: ATLAS_ROUTE_PANE,
+  }).addTo(routeLayerGroup!)
+
+  const t0 = performance.now()
+  const step = (now: number): void => {
+    if (token !== routeAnimToken) return
+    const u = Math.min(1, (now - t0) / durationMs)
+    const ll = interpolateAlongPolyline(path, u)
+    routePulseMarker?.setLatLng(ll)
+    if (u < 1) {
+      requestAnimationFrame(step)
+    }
+  }
+  requestAnimationFrame(step)
+}
 
 const START_ROUTE_POPUP_BTN_CLASS =
   'w-full mt-3 bg-gradient-to-b from-primary to-primary-container text-on-primary font-black py-3 text-xs tracking-widest uppercase rounded-lg active:scale-[0.98] transition-transform shadow-sm border-0 cursor-pointer'
@@ -66,8 +201,7 @@ function tacticalDivIcon(tag: string): L.DivIcon {
 function tacticalPinPopupHtml(pin: DelawareHousePin): string {
   const v = getVoter(pin.voterId)
   const voterFileHref = `#/voters/${encodeURIComponent(pin.voterId)}`
-  const logPath = `/log/${encodeURIComponent(pin.voterId)}`
-  const startRouteBtn = `<button type="button" data-goto="${logPath}" class="${START_ROUTE_POPUP_BTN_CLASS}">Start Route</button>`
+  const startRouteBtn = `<button type="button" data-dashboard-route="${pin.voterId.replace(/"/g, '&quot;')}" class="${START_ROUTE_POPUP_BTN_CLASS}">Start Route</button>`
 
   if (!v) {
     const safeAddr = pin.address
@@ -101,22 +235,6 @@ function districtDivIcon(total: number, color: string): L.DivIcon {
   })
 }
 
-function nearestRepresentativeDistrictIndex(lat: number, lng: number): number {
-  let nearest = 0
-  let minDistanceSq = Number.POSITIVE_INFINITY
-  for (let i = 0; i < representativeDistrictMapCentroids.length; i++) {
-    const c = representativeDistrictMapCentroids[i]
-    const dLat = lat - c.lat
-    const dLng = lng - c.lng
-    const distanceSq = dLat * dLat + dLng * dLng
-    if (distanceSq < minDistanceSq) {
-      minDistanceSq = distanceSq
-      nearest = i
-    }
-  }
-  return nearest
-}
-
 interface PersistedDashboardMapView {
   sector: string
   lat: number
@@ -144,6 +262,10 @@ function readPersistedDashboardMapView(): PersistedDashboardMapView | null {
   }
 }
 
+function isRepresentativeDistrictSector(sector: string): boolean {
+  return /District\s+\d+/i.test(sector)
+}
+
 function persistDashboardMapView(sector: string, lat: number, lng: number, zoom: number): void {
   try {
     sessionStorage.setItem(
@@ -152,6 +274,74 @@ function persistDashboardMapView(sector: string, lat: number, lng: number, zoom:
     )
   } catch {
     // ignore quota / private mode
+  }
+}
+
+const ROUTE_PULSE_MS = 2800
+
+export function clearDashboardCanvassRoute(): void {
+  routeAnimToken++
+  routeLayerGroup?.clearLayers()
+  routePulseMarker = null
+}
+
+/** Driving directions (OSRM) when ≤26 stops; otherwise straight segments. Animated polyline + pulse. */
+export async function runDashboardCanvassRoute(startVoterId?: string): Promise<void> {
+  const map = activeDashboardMap
+  if (!map || !routeLayerGroup) return
+
+  clearDashboardCanvassRoute()
+  const myToken = routeAnimToken
+
+  map.closePopup()
+
+  const pins = getDelawareHousePinsForDashboardSector(readDashboardSectorSelection())
+  if (pins.length < 2) return
+
+  const startPin =
+    (startVoterId ? pins.find((p) => p.voterId === startVoterId) : undefined) ?? pins[0]
+  const ordered = orderPinsNearestNeighbor(pins, startPin)
+  const waypoints: L.LatLngTuple[] = ordered.map((p) => [p.lat, p.lng])
+
+  if (map.getZoom() <= DISTRICT_GROUPING_MAX_ZOOM) {
+    map.setZoom(DISTRICT_GROUPING_MAX_ZOOM + 1)
+  }
+
+  // Never block first paint of the route on remote routing.
+  let pathLatLngs: L.LatLngTuple[] = waypoints
+
+  if (myToken !== routeAnimToken) return
+
+  const line = L.polyline(pathLatLngs, {
+    color: '#c8102e',
+    weight: 6,
+    opacity: 1,
+    lineCap: 'round',
+    lineJoin: 'round',
+    interactive: false,
+    className: 'atlas-dashboard-route-polyline',
+    pane: ATLAS_ROUTE_PANE,
+  })
+  line.addTo(routeLayerGroup)
+  line.bringToFront()
+
+  try {
+    map.fitBounds(line.getBounds(), { padding: [52, 52], maxZoom: 17, animate: true })
+  } catch {
+    /* ignore empty bounds */
+  }
+
+  map.invalidateSize()
+
+  animatePulseAlongRoute(pathLatLngs, ROUTE_PULSE_MS, myToken)
+
+  if (waypoints.length <= OSRM_MAX_WAYPOINTS) {
+    void fetchOsrmDrivingGeometry(waypoints).then((osrmPath) => {
+      if (!osrmPath || myToken !== routeAnimToken) return
+      line.setLatLngs(osrmPath)
+      line.bringToFront()
+      animatePulseAlongRoute(osrmPath, ROUTE_PULSE_MS, myToken)
+    })
   }
 }
 
@@ -238,6 +428,13 @@ export function mountDashboardMap(root: HTMLElement): void {
   }).setView(initialCenter, initialZoom)
   activeDashboardMap = map
 
+  if (!map.getPane(ATLAS_ROUTE_PANE)) {
+    const rp = map.createPane(ATLAS_ROUTE_PANE)
+    rp.style.zIndex = '650'
+  }
+
+  routeLayerGroup = L.layerGroup().addTo(map)
+
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution:
@@ -259,7 +456,7 @@ export function mountDashboardMap(root: HTMLElement): void {
       closeButton: true,
     })
 
-    const districtIndex = nearestRepresentativeDistrictIndex(pin.lat, pin.lng)
+    const districtIndex = houseDistrictIndexAtLatLng(pin.lat, pin.lng)
     const bucket = districtBuckets.get(districtIndex)
     if (bucket) {
       bucket.push(pin)
@@ -303,8 +500,12 @@ export function mountDashboardMap(root: HTMLElement): void {
     if (!map.hasLayer(individualPinsLayer)) individualPinsLayer.addTo(map)
   }
 
-  if (!restorePreviousView && pinLayers.length > 0) {
+  const hasRepresentativeDistrictSelection = isRepresentativeDistrictSector(sectorKey)
+  if (!restorePreviousView && !hasRepresentativeDistrictSelection && pinLayers.length > 0) {
     map.fitBounds(L.featureGroup(pinLayers).getBounds(), { padding: [28, 28], maxZoom: 11 })
+  }
+  if (!restorePreviousView && hasRepresentativeDistrictSelection) {
+    flyDashboardMapForSectorLabel(sectorKey)
   }
   syncPinLayerVisibility()
   map.on('zoomend', syncPinLayerVisibility)
@@ -349,6 +550,21 @@ export function mountDashboardMap(root: HTMLElement): void {
     map.flyTo([center.lat, center.lng], zoom, { duration: 0.6 })
   }
 
+  // Leaflet popup containers stop click propagation by default.
+  // Capture route-button clicks inside the map subtree before Leaflet cancels bubbling.
+  root.addEventListener(
+    'click',
+    (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-dashboard-route]')
+      if (!btn) return
+      if (!el.contains(btn)) return
+      e.preventDefault()
+      const voterId = btn.dataset.dashboardRoute?.trim()
+      void runDashboardCanvassRoute(voterId || undefined)
+    },
+    { signal, capture: true },
+  )
+
   root.querySelector<HTMLButtonElement>('[data-map-locate]')?.addEventListener(
     'click',
     (e) => {
@@ -371,6 +587,10 @@ export function mountDashboardMap(root: HTMLElement): void {
 
   teardown = () => {
     ac.abort()
+    routeAnimToken++
+    routeLayerGroup?.clearLayers()
+    routePulseMarker = null
+    routeLayerGroup = null
     map.off('locationfound', onLocateSuccess)
     map.off('locationerror', onLocateError)
     map.off('zoomend', syncPinLayerVisibility)
