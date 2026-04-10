@@ -27,12 +27,28 @@ function navItem(
     </button>`
 }
 
+/** Same four destinations as the bottom dock — used in the hamburger drawer. */
+function drawerNavItem(
+  key: NavKey,
+  active: NavKey,
+  icon: string,
+  label: string,
+  hash: string,
+): string {
+  const isActive = active === key
+  return `
+    <button type="button" data-nav="${hash}" class="atlas-shell-drawer__item flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors ${isActive ? 'bg-primary/12 text-primary' : 'text-on-background hover:bg-surface-container-low'}">
+      <span class="material-symbols-outlined text-[26px] shrink-0 ${isActive ? 'fill' : ''}">${icon}</span>
+      <span class="font-headline text-sm font-bold uppercase tracking-wide">${label}</span>
+    </button>`
+}
+
 export function renderShell(mainHtml: string, opts: ShellOptions): string {
   const {
     nav,
     title = 'Project Atlas',
     showBack = false,
-    statusLine = 'APR 09 • 85%',
+    statusLine = '',
     hideNav = false,
     fullBleedMain = false,
   } = opts
@@ -43,19 +59,43 @@ export function renderShell(mainHtml: string, opts: ShellOptions): string {
       <div class="flex items-center gap-2 min-w-0">
         ${showBack ? `<button type="button" data-action="back" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-low active:scale-95 transition-transform" aria-label="Back">
           <span class="material-symbols-outlined">arrow_back</span>
-        </button>` : `<button type="button" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-low" aria-label="Menu">
+        </button>` : `<button type="button" data-action="toggle-menu" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-low" aria-expanded="false" aria-controls="atlas-shell-menu" aria-label="Open menu">
           <span class="material-symbols-outlined">menu</span>
         </button>`}
         <h1 class="font-headline truncate text-lg font-black uppercase tracking-tight text-primary">${title}</h1>
       </div>
       <div class="flex items-center gap-2 shrink-0 text-[10px] font-bold tracking-widest text-on-surface-variant">
-        <span class="uppercase">${statusLine}</span>
+        ${statusLine ? `<span class="uppercase">${statusLine}</span>` : ''}
         <button type="button" data-action="toggle-offline" class="flex items-center gap-1 rounded-lg px-2 py-1 transition-colors ${offlineOn ? 'bg-primary/10 text-primary' : 'hover:bg-surface-container-low text-on-surface-variant'}" aria-pressed="${!offlineOn}" aria-label="${offlineOn ? 'Go online' : 'Go offline'}">
           <span class="material-symbols-outlined text-sm ${offlineOn ? 'fill' : ''}">${offlineOn ? 'wifi_off' : 'wifi'}</span>
           <span class="uppercase tracking-widest">Online</span>
         </button>
       </div>
     </header>`
+
+  const hamburgerDrawer = showBack
+    ? ''
+    : `
+    <div id="atlas-shell-menu" class="atlas-shell-menu" aria-hidden="true">
+      <button type="button" class="atlas-shell-menu__backdrop" data-action="close-menu" aria-label="Close menu"></button>
+      <nav class="atlas-shell-menu__panel" aria-label="Main navigation">
+        <div class="atlas-shell-menu__header">
+          <p class="atlas-shell-menu__headline font-headline text-xs font-extrabold uppercase tracking-widest text-on-surface-variant">Go to</p>
+          <button type="button" class="atlas-shell-menu__close" data-action="close-menu" aria-label="Close menu">
+            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+          </button>
+        </div>
+        <div class="atlas-shell-menu__list flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
+          ${drawerNavItem('route', nav, 'map', 'Route', '#/')}
+          ${drawerNavItem('voters', nav, 'group', 'Voters', '#/voters')}
+          ${drawerNavItem('log', nav, 'leaderboard', 'Progress', '#/log')}
+          ${drawerNavItem('intel', nav, 'analytics', 'Intel', '#/intel')}
+        </div>
+        <button type="button" data-nav="#/" class="atlas-shell-menu__cta font-headline w-full shrink-0 rounded-2xl px-4 py-4 text-center text-base font-black uppercase tracking-wide text-white">
+          Start my route
+        </button>
+      </nav>
+    </div>`
 
   const bottomNav = hideNav
     ? ''
@@ -70,39 +110,104 @@ export function renderShell(mainHtml: string, opts: ShellOptions): string {
   return `
     <div class="min-h-dvh bg-background ${fullBleedMain ? '' : 'pb-nav'} font-body text-on-background selection:bg-primary/20">
       ${header}
+      ${hamburgerDrawer}
       <div id="view-root">${mainHtml}</div>
       ${bottomNav}
     </div>`
 }
 
+let shellBindAbort: AbortController | null = null
+
+function setHamburgerMenuOpen(root: HTMLElement, open: boolean): void {
+  const menu = root.querySelector('#atlas-shell-menu')
+  const btn = root.querySelector<HTMLButtonElement>('[data-action="toggle-menu"]')
+  menu?.classList.toggle('atlas-shell-menu--open', open)
+  menu?.setAttribute('aria-hidden', open ? 'false' : 'true')
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false')
+  if (open) {
+    window.setTimeout(() => {
+      menu?.querySelector<HTMLButtonElement>('.atlas-shell-menu__list [data-nav]')?.focus({
+        preventScroll: true,
+      })
+    }, 0)
+  } else {
+    btn?.focus({ preventScroll: true })
+  }
+}
+
 export function bindShell(root: HTMLElement): void {
+  shellBindAbort?.abort()
+  shellBindAbort = new AbortController()
+  const { signal } = shellBindAbort
+
+  const closeHamburgerMenu = (): void => setHamburgerMenuOpen(root, false)
+
+  root.querySelector<HTMLButtonElement>('[data-action="toggle-menu"]')?.addEventListener(
+    'click',
+    () => {
+      const menu = root.querySelector('#atlas-shell-menu')
+      const next = !menu?.classList.contains('atlas-shell-menu--open')
+      setHamburgerMenuOpen(root, next)
+    },
+    { signal },
+  )
+
+  root.querySelectorAll<HTMLButtonElement>('[data-action="close-menu"]').forEach((btn) => {
+    btn.addEventListener('click', closeHamburgerMenu, { signal })
+  })
+
   root.querySelectorAll<HTMLButtonElement>('[data-nav]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      navigate(btn.dataset.nav ?? '#/')
-    })
+    btn.addEventListener(
+      'click',
+      () => {
+        closeHamburgerMenu()
+        navigate(btn.dataset.nav ?? '#/')
+      },
+      { signal },
+    )
   })
 
   root.querySelectorAll<HTMLButtonElement>('[data-action="back"]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      if (window.history.length > 1) window.history.back()
-      else navigate('#/')
-    })
+    btn.addEventListener(
+      'click',
+      () => {
+        if (window.history.length > 1) window.history.back()
+        else navigate('#/')
+      },
+      { signal },
+    )
   })
 
   root.querySelectorAll<HTMLButtonElement>('[data-action="toggle-offline"]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const next = toggleForceOffline()
-      const icon = btn.querySelector<HTMLSpanElement>('.material-symbols-outlined')
-      if (icon) {
-        icon.textContent = next ? 'wifi_off' : 'wifi'
-        icon.classList.toggle('fill', next)
-      }
-      btn.setAttribute('aria-pressed', String(!next))
-      btn.setAttribute('aria-label', next ? 'Go online' : 'Go offline')
-      btn.classList.toggle('bg-primary/10', next)
-      btn.classList.toggle('text-primary', next)
-      btn.classList.toggle('hover:bg-surface-container-low', !next)
-      btn.classList.toggle('text-on-surface-variant', !next)
-    })
+    btn.addEventListener(
+      'click',
+      () => {
+        const next = toggleForceOffline()
+        const icon = btn.querySelector<HTMLSpanElement>('.material-symbols-outlined')
+        if (icon) {
+          icon.textContent = next ? 'wifi_off' : 'wifi'
+          icon.classList.toggle('fill', next)
+        }
+        btn.setAttribute('aria-pressed', String(!next))
+        btn.setAttribute('aria-label', next ? 'Go online' : 'Go offline')
+        btn.classList.toggle('bg-primary/10', next)
+        btn.classList.toggle('text-primary', next)
+        btn.classList.toggle('hover:bg-surface-container-low', !next)
+        btn.classList.toggle('text-on-surface-variant', !next)
+      },
+      { signal },
+    )
   })
+
+  document.addEventListener(
+    'keydown',
+    (e) => {
+      if (e.key !== 'Escape') return
+      const menu = root.querySelector('#atlas-shell-menu')
+      if (!menu?.classList.contains('atlas-shell-menu--open')) return
+      e.preventDefault()
+      closeHamburgerMenu()
+    },
+    { signal },
+  )
 }

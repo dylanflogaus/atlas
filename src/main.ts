@@ -44,7 +44,6 @@ function render(): void {
     nav: route.nav,
     title: 'Project Atlas',
     showBack: false,
-    statusLine: 'APR 09 • 85%',
     hideNav: false,
   }
 
@@ -85,7 +84,6 @@ function render(): void {
       nav: 'log',
       title: 'Mission Update',
       showBack: true,
-      statusLine: 'APR 09 • 85%',
       hideNav: true,
     }
     mainHtml = renderConfirmation(v)

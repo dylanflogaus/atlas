@@ -12,6 +12,7 @@ import {
   invalidateDashboardMapSize,
   mountDashboardMap,
   runDashboardCanvassRoute,
+  setDashboardRouteEstimateListener,
 } from '../map/dashboardMap'
 import { navigate } from '../router'
 import { cardAccent, priorityTargetBodyHtml } from './priorityTargetMarkup'
@@ -74,6 +75,22 @@ function sectorListboxHtml(selected: string): string {
 
 function priorityCarouselHtml(targets: Voter[]): string {
   return targets.map(dashboardPriorityCard).join('')
+}
+
+/** Shown in the status bar; `null` or non-positive → `0:00`. */
+function formatRouteEstimateLabel(totalSeconds: number | null): string {
+  if (totalSeconds == null || !Number.isFinite(totalSeconds) || totalSeconds <= 0) return '0:00'
+  const s = Math.round(totalSeconds)
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+  return `${m}:${String(sec).padStart(2, '0')}`
+}
+
+function updateRouteEstimateDisplay(root: HTMLElement, totalSeconds: number | null): void {
+  const el = root.querySelector<HTMLElement>('[data-dashboard-route-estimate]')
+  if (el) el.textContent = formatRouteEstimateLabel(totalSeconds)
 }
 
 export function renderDashboard(): string {
@@ -189,9 +206,9 @@ export function renderDashboard(): string {
                 </ul>
               </div>
             </div>
-            <div class="atlas-dashboard-status-time flex shrink-0 flex-col items-end justify-center border-l border-white/[0.08] py-3 pl-6 pr-5">
-              <span class="atlas-dashboard-status-label">Est. time</span>
-              <span class="atlas-dashboard-status-value mt-1 tabular-nums">${dashboardStats.timeRemaining.replace(/</g, '&lt;')}</span>
+            <div class="atlas-dashboard-status-time flex shrink-0 flex-col items-end justify-center border-l border-white/[0.08] py-3 pl-6 pr-5 text-right">
+              <span class="atlas-dashboard-status-label">Est. time remaining</span>
+              <span class="atlas-dashboard-status-value mt-1 tabular-nums" data-dashboard-route-estimate aria-live="polite">0:00</span>
             </div>
           </div>
         </div>
@@ -295,7 +312,9 @@ export function bindDashboard(root: HTMLElement): void {
   dashboardBindingsAbort = new AbortController()
   const { signal } = dashboardBindingsAbort
 
+  setDashboardRouteEstimateListener((totalSeconds) => updateRouteEstimateDisplay(root, totalSeconds))
   mountDashboardMap(root)
+  updateRouteEstimateDisplay(root, null)
 
   root.addEventListener(
     'click',
@@ -400,6 +419,7 @@ export function bindDashboard(root: HTMLElement): void {
 }
 
 export function unmountDashboardBindings(): void {
+  setDashboardRouteEstimateListener(null)
   dashboardBindingsAbort?.abort()
   dashboardBindingsAbort = null
 }

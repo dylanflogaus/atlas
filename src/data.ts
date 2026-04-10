@@ -946,11 +946,14 @@ export const representativeDistrictMapCentroids: readonly { lat: number; lng: nu
   { lat: 38.51720323831382, lng: -75.27595083453936 },
 ]
 
-/** Small lat/lng offsets from each HD centroid so three pins spread (~200–350m) without stacking. */
+/** Small lat/lng offsets from each HD centroid so pins spread (~200–500m) without stacking. */
 const REPRESENTATIVE_DISTRICT_PIN_OFFSETS: readonly { dlat: number; dlng: number }[] = [
   { dlat: 0.0032, dlng: 0.0018 },
   { dlat: -0.0024, dlng: 0.0028 },
   { dlat: 0.0016, dlng: -0.0032 },
+  { dlat: -0.0035, dlng: -0.0016 },
+  { dlat: 0.0029, dlng: 0.0034 },
+  { dlat: -0.0011, dlng: -0.0027 },
 ]
 
 const DEMO_PIN_VOTER_IDS: readonly string[] = [
@@ -1004,7 +1007,7 @@ function tacticalPinsForAllRepresentativeDistricts(): DelawareHousePin[] {
   return pins
 }
 
-/** Verified/sample points plus three tactical pins per state house district (centroid-based). */
+/** Verified/sample points plus six tactical pins per state house district (centroid-based). */
 export const delawareVerifiedHousePins: DelawareHousePin[] = [
   ...delawareVerifiedHousePinsSeed,
   ...tacticalPinsForAllRepresentativeDistricts(),
@@ -1023,7 +1026,6 @@ export const dashboardStats = {
   voterConv: 12,
   voterConvDelta: '+2% FROM AVG',
   sector: 'Delaware — statewide sweep',
-  timeRemaining: '14:02 REM',
 }
 
 /** Session key for dashboard sector `<select>` (priority targets + map focus). */

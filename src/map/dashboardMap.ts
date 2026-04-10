@@ -36,6 +36,8 @@ let teardown: (() => void) | null = null
 let routeLayerGroup: L.LayerGroup | null = null
 let routePulseMarker: L.CircleMarker | null = null
 let routeAnimToken = 0
+let routeLoadingOverlayEl: HTMLElement | null = null
+let routeLoadingMessageInterval: ReturnType<typeof setInterval> | null = null
 
 const OSRM_MAX_WAYPOINTS = 26
 const OSRM_REQUEST_TIMEOUT_MS = 7000
@@ -71,7 +73,45 @@ function orderPinsNearestNeighbor(pins: DelawareHousePin[], start: DelawareHouse
   return ordered
 }
 
-async function fetchOsrmDrivingGeometry(latlngs: L.LatLngTuple[]): Promise<L.LatLngTuple[] | null> {
+/** Meters along a polyline (haversine / geodesic per Leaflet segment). */
+function pathLengthMeters(path: L.LatLngTuple[]): number {
+  let m = 0
+  for (let i = 0; i < path.length - 1; i++) {
+    m += L.latLng(path[i]!).distanceTo(L.latLng(path[i + 1]!))
+  }
+  return m
+}
+
+/** When the router returns no duration, approximate driving time from path length (~25 mph avg). */
+function estimateDriveSecondsFromPath(path: L.LatLngTuple[]): number {
+  const meters = pathLengthMeters(path)
+  const averageMps = 11.18
+  return Math.max(0, Math.round(meters / averageMps))
+}
+
+export type DashboardRouteEstimateListener = (totalSeconds: number | null) => void
+
+let routeEstimateListener: DashboardRouteEstimateListener | null = null
+
+/** Wired from the dashboard so the status bar can show route duration; cleared on unmount. */
+export function setDashboardRouteEstimateListener(fn: DashboardRouteEstimateListener | null): void {
+  routeEstimateListener = fn
+}
+
+function notifyRouteEstimate(totalSeconds: number | null): void {
+  routeEstimateListener?.(totalSeconds)
+}
+
+interface OsrmRouteResponse {
+  routes?: {
+    duration?: number
+    geometry?: { coordinates?: [number, number][] }
+  }[]
+}
+
+async function fetchOsrmDrivingRoute(
+  latlngs: L.LatLngTuple[],
+): Promise<{ path: L.LatLngTuple[]; durationSeconds: number } | null> {
   if (latlngs.length < 2) return null
   const slice = latlngs.slice(0, OSRM_MAX_WAYPOINTS)
   const coordStr = slice.map(([lat, lng]) => `${lng},${lat}`).join(';')
@@ -96,12 +136,17 @@ async function fetchOsrmDrivingGeometry(latlngs: L.LatLngTuple[]): Promise<L.Lat
               signal: AbortSignal.timeout(OSRM_REQUEST_TIMEOUT_MS),
             })
       if (!res.ok) continue
-      const data = (await res.json()) as {
-        routes?: { geometry?: { coordinates?: [number, number][] } }[]
-      }
-      const coords = data.routes?.[0]?.geometry?.coordinates
-      if (!Array.isArray(coords) || coords.length < 2) continue
-      return coords.map((c) => [c[1], c[0]] as L.LatLngTuple)
+      const data = (await res.json()) as OsrmRouteResponse
+      const route0 = data.routes?.[0]
+      const coords = route0?.geometry?.coordinates
+      if (!route0 || !Array.isArray(coords) || coords.length < 2) continue
+      const path = coords.map((c) => [c[1], c[0]] as L.LatLngTuple)
+      const fromApi =
+        typeof route0.duration === 'number' && Number.isFinite(route0.duration)
+          ? route0.duration
+          : null
+      const durationSeconds = Math.round(fromApi ?? estimateDriveSecondsFromPath(path))
+      return { path, durationSeconds }
     } catch {
       // Try next provider.
     }
@@ -133,6 +178,31 @@ function interpolateAlongPolyline(path: L.LatLngTuple[], t: number): L.LatLng {
     dist -= leg
   }
   return latlngs[latlngs.length - 1]
+}
+
+function routeStartLocationIcon(): L.DivIcon {
+  return L.divIcon({
+    className: 'atlas-dashboard-route-start-wrap',
+    html: `<div class="atlas-dashboard-route-start" aria-hidden="true">
+      <span class="atlas-dashboard-route-start__pulse"></span>
+      <span class="atlas-dashboard-route-start__core"></span>
+    </div>`,
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+  })
+}
+
+/** Blue blinking “current location” style marker at the first point of the path. */
+function addRouteStartMarker(path: L.LatLngTuple[]): void {
+  if (path.length < 1 || !routeLayerGroup) return
+  const start = path[0]
+  L.marker(start, {
+    icon: routeStartLocationIcon(),
+    interactive: false,
+    keyboard: false,
+    pane: ATLAS_ROUTE_PANE,
+    zIndexOffset: 350,
+  }).addTo(routeLayerGroup)
 }
 
 function animatePulseAlongRoute(path: L.LatLngTuple[], durationMs: number, token: number): void {
@@ -279,10 +349,126 @@ function persistDashboardMapView(sector: string, lat: number, lng: number, zoom:
 
 const ROUTE_PULSE_MS = 2800
 
+const ROUTE_LOADING_MESSAGES: readonly string[] = [
+  'Calculating shortest route.',
+  'Bribing the map with good vibes (and math).',
+  'Negotiating with one-way streets.',
+  'Teaching GPS about doors, not detours.',
+  'Asking the satellite very politely.',
+  'Fewer zigzags than your last turf sketch—hopefully.',
+  'Road math in progress. Hydrate.',
+  'Convincing turn restrictions you’re with the good guys.',
+  'Still faster than folding a walk sheet.',
+  'Plotting the red line… respectfully.',
+  'Almost as quick as you between porches.',
+  'The routing gods are speed-walking.',
+  'Snapping this mess to something you can actually walk.',
+  'Hang tight—great turf takes a hot second.',
+]
+
+const ROUTE_LOADING_MESSAGE_MS = 3500
+
+function shuffleRouteLoadingMessages(): string[] {
+  const q = [...ROUTE_LOADING_MESSAGES]
+  for (let i = q.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const a = q[i]!
+    q[i] = q[j]!
+    q[j] = a
+  }
+  return q
+}
+
+function stopRouteLoadingMessageCycle(): void {
+  if (routeLoadingMessageInterval != null) {
+    clearInterval(routeLoadingMessageInterval)
+    routeLoadingMessageInterval = null
+  }
+}
+
+function startRouteLoadingMessageCycle(): void {
+  stopRouteLoadingMessageCycle()
+  const textEl = routeLoadingOverlayEl?.querySelector<HTMLElement>('.atlas-dashboard-route-loading__text')
+  if (!textEl) return
+
+  let queue = shuffleRouteLoadingMessages()
+  let qi = 0
+  textEl.textContent = queue[qi] ?? ''
+
+  routeLoadingMessageInterval = window.setInterval(() => {
+    qi++
+    if (qi >= queue.length) {
+      const lastShown = queue[queue.length - 1]
+      queue = shuffleRouteLoadingMessages()
+      if (queue.length > 1 && queue[0] === lastShown) {
+        const swapWith = queue.findIndex((m, i) => i > 0 && m !== lastShown)
+        if (swapWith > 0) {
+          const tmp = queue[0]!
+          queue[0] = queue[swapWith]!
+          queue[swapWith] = tmp
+        }
+      }
+      qi = 0
+    }
+    textEl.textContent = queue[qi] ?? ''
+  }, ROUTE_LOADING_MESSAGE_MS)
+}
+
+function ensureRouteLoadingOverlay(map: L.Map): HTMLElement {
+  const host = map.getContainer()
+  const parent = host.parentElement
+  if (!parent) {
+    return document.createElement('div')
+  }
+  if (
+    routeLoadingOverlayEl &&
+    routeLoadingOverlayEl.isConnected &&
+    routeLoadingOverlayEl.parentElement === parent
+  ) {
+    return routeLoadingOverlayEl
+  }
+  routeLoadingOverlayEl?.remove()
+  const el = document.createElement('div')
+  el.className = 'atlas-dashboard-route-loading'
+  el.setAttribute('role', 'status')
+  el.setAttribute('aria-live', 'off')
+  el.setAttribute('aria-label', 'Calculating route, please wait.')
+  el.setAttribute('aria-hidden', 'true')
+  el.innerHTML = `
+    <div class="atlas-dashboard-route-loading__panel">
+      <span class="material-symbols-outlined atlas-dashboard-route-loading__spinner" aria-hidden="true">progress_activity</span>
+      <p class="atlas-dashboard-route-loading__text">Calculating shortest route.</p>
+    </div>`
+  parent.appendChild(el)
+  routeLoadingOverlayEl = el
+  return el
+}
+
+function showDashboardRouteLoading(map: L.Map): void {
+  const el = ensureRouteLoadingOverlay(map)
+  el.classList.add('atlas-dashboard-route-loading--visible')
+  el.setAttribute('aria-hidden', 'false')
+  startRouteLoadingMessageCycle()
+}
+
+function hideDashboardRouteLoading(): void {
+  stopRouteLoadingMessageCycle()
+  routeLoadingOverlayEl?.classList.remove('atlas-dashboard-route-loading--visible')
+  routeLoadingOverlayEl?.setAttribute('aria-hidden', 'true')
+}
+
+function destroyRouteLoadingOverlay(): void {
+  stopRouteLoadingMessageCycle()
+  routeLoadingOverlayEl?.remove()
+  routeLoadingOverlayEl = null
+}
+
 export function clearDashboardCanvassRoute(): void {
   routeAnimToken++
   routeLayerGroup?.clearLayers()
   routePulseMarker = null
+  hideDashboardRouteLoading()
+  notifyRouteEstimate(null)
 }
 
 /** Driving directions (OSRM) when ≤26 stops; otherwise straight segments. Animated polyline + pulse. */
@@ -307,12 +493,9 @@ export async function runDashboardCanvassRoute(startVoterId?: string): Promise<v
     map.setZoom(DISTRICT_GROUPING_MAX_ZOOM + 1)
   }
 
-  // Never block first paint of the route on remote routing.
-  let pathLatLngs: L.LatLngTuple[] = waypoints
-
   if (myToken !== routeAnimToken) return
 
-  const line = L.polyline(pathLatLngs, {
+  const polylineOptions: L.PolylineOptions = {
     color: '#c8102e',
     weight: 6,
     opacity: 1,
@@ -321,27 +504,57 @@ export async function runDashboardCanvassRoute(startVoterId?: string): Promise<v
     interactive: false,
     className: 'atlas-dashboard-route-polyline',
     pane: ATLAS_ROUTE_PANE,
-  })
-  line.addTo(routeLayerGroup)
-  line.bringToFront()
-
-  try {
-    map.fitBounds(line.getBounds(), { padding: [52, 52], maxZoom: 17, animate: true })
-  } catch {
-    /* ignore empty bounds */
   }
 
-  map.invalidateSize()
-
-  animatePulseAlongRoute(pathLatLngs, ROUTE_PULSE_MS, myToken)
-
   if (waypoints.length <= OSRM_MAX_WAYPOINTS) {
-    void fetchOsrmDrivingGeometry(waypoints).then((osrmPath) => {
-      if (!osrmPath || myToken !== routeAnimToken) return
-      line.setLatLngs(osrmPath)
+    showDashboardRouteLoading(map)
+    try {
+      try {
+        const bounds = L.latLngBounds(waypoints)
+        map.fitBounds(bounds, { padding: [52, 52], maxZoom: 17, animate: true })
+      } catch {
+        /* ignore empty bounds */
+      }
+      map.invalidateSize()
+
+      const osrm = await fetchOsrmDrivingRoute(waypoints)
+      if (myToken !== routeAnimToken) return
+
+      const pathLatLngs: L.LatLngTuple[] = osrm?.path ?? waypoints
+      const durationSeconds = osrm?.durationSeconds ?? estimateDriveSecondsFromPath(pathLatLngs)
+      const line = L.polyline(pathLatLngs, polylineOptions)
+      line.addTo(routeLayerGroup)
       line.bringToFront()
-      animatePulseAlongRoute(osrmPath, ROUTE_PULSE_MS, myToken)
-    })
+      addRouteStartMarker(pathLatLngs)
+
+      try {
+        map.fitBounds(line.getBounds(), { padding: [52, 52], maxZoom: 17, animate: true })
+      } catch {
+        /* ignore empty bounds */
+      }
+      map.invalidateSize()
+      animatePulseAlongRoute(pathLatLngs, ROUTE_PULSE_MS, myToken)
+      if (myToken === routeAnimToken) notifyRouteEstimate(durationSeconds)
+    } finally {
+      if (myToken === routeAnimToken) hideDashboardRouteLoading()
+    }
+  } else {
+    const pathLatLngs: L.LatLngTuple[] = waypoints
+    const durationSeconds = estimateDriveSecondsFromPath(pathLatLngs)
+    const line = L.polyline(pathLatLngs, polylineOptions)
+    line.addTo(routeLayerGroup)
+    line.bringToFront()
+    addRouteStartMarker(pathLatLngs)
+
+    try {
+      map.fitBounds(line.getBounds(), { padding: [52, 52], maxZoom: 17, animate: true })
+    } catch {
+      /* ignore empty bounds */
+    }
+
+    map.invalidateSize()
+    animatePulseAlongRoute(pathLatLngs, ROUTE_PULSE_MS, myToken)
+    if (myToken === routeAnimToken) notifyRouteEstimate(durationSeconds)
   }
 }
 
@@ -591,6 +804,8 @@ export function mountDashboardMap(root: HTMLElement): void {
     routeLayerGroup?.clearLayers()
     routePulseMarker = null
     routeLayerGroup = null
+    destroyRouteLoadingOverlay()
+    notifyRouteEstimate(null)
     map.off('locationfound', onLocateSuccess)
     map.off('locationerror', onLocateError)
     map.off('zoomend', syncPinLayerVisibility)

@@ -72,6 +72,138 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Hamburger drawer — same destinations as command dock */
+.atlas-shell-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: block;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.2s ease,
+    visibility 0.2s ease;
+}
+
+.atlas-shell-menu--open {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.atlas-shell-menu__backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  background: rgb(15 23 42 / 0.45);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.atlas-shell-menu__panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: min(18.5rem, 88vw);
+  padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+  border-right: 1px solid color-mix(in srgb, var(--color-outline-variant) 55%, transparent);
+  background: color-mix(in srgb, var(--color-surface-container-lowest) 96%, transparent);
+  backdrop-filter: blur(14px);
+  box-shadow: 8px 0 32px rgb(0 0 0 / 0.12);
+  transform: translateX(-100%);
+  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.atlas-shell-menu--open .atlas-shell-menu__panel {
+  transform: translateX(0);
+}
+
+.atlas-shell-menu__header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.atlas-shell-menu__headline {
+  margin: 0;
+  letter-spacing: 0.14em;
+}
+
+.atlas-shell-menu__close {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: -0.25rem -0.25rem -0.25rem 0;
+  border: none;
+  border-radius: 0.75rem;
+  background: transparent;
+  color: var(--color-on-surface-variant);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.atlas-shell-menu__close:hover {
+  background: var(--color-surface-container-low);
+  color: var(--color-on-surface);
+}
+
+.atlas-shell-menu__close:active {
+  transform: scale(0.96);
+}
+
+.atlas-shell-menu__close .material-symbols-outlined {
+  font-size: 1.5rem;
+}
+
+.atlas-shell-menu__cta {
+  margin-top: auto;
+  border: none;
+  background: var(--color-error);
+  box-shadow:
+    0 2px 0 color-mix(in srgb, var(--color-error) 65%, #000),
+    0 8px 20px rgb(186 26 26 / 0.35);
+  cursor: pointer;
+  transition:
+    filter 0.15s ease,
+    transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.atlas-shell-menu__cta:hover {
+  filter: brightness(1.06);
+}
+
+.atlas-shell-menu__cta:active {
+  transform: scale(0.98);
+}
+
+.atlas-shell-menu__cta:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-on-primary) 90%, var(--color-error));
+  outline-offset: 3px;
+}
+
+.atlas-shell-menu__list .atlas-shell-drawer__item:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 55%, transparent);
+  outline-offset: 2px;
+}
+
 /* Intel page — briefing hero & cards (classes referenced from src/views/intel.ts) */
 .intel-hero {
   isolation: isolate;
@@ -537,6 +669,134 @@
 /* Canvass route (Start Route) — lives in atlasRoutePane (z-index 650) */
 #atlas-dashboard-map .atlas-dashboard-route-pulse {
   pointer-events: none;
+}
+
+#atlas-dashboard-map .atlas-dashboard-route-start-wrap {
+  border: none;
+  background: transparent;
+}
+
+#atlas-dashboard-map .atlas-dashboard-route-start {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  pointer-events: none;
+}
+
+/* Expanding ring (GPS-style) */
+@keyframes atlas-dashboard-route-start-ring {
+  0% {
+    transform: scale(0.55);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1.45);
+    opacity: 0;
+  }
+}
+
+/* Core dot blink */
+@keyframes atlas-dashboard-route-start-blink {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(0.88);
+  }
+}
+
+#atlas-dashboard-map .atlas-dashboard-route-start__pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgb(37 99 235 / 0.4);
+  animation: atlas-dashboard-route-start-ring 2s ease-out infinite;
+}
+
+#atlas-dashboard-map .atlas-dashboard-route-start__core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #2563eb;
+  box-shadow:
+    0 0 0 1px rgb(37 99 235 / 0.65),
+    0 2px 10px rgb(0 0 0 / 0.3);
+  transform-origin: center;
+  animation: atlas-dashboard-route-start-blink 1.25s ease-in-out infinite;
+}
+
+@keyframes atlas-dashboard-route-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.atlas-dashboard-route-loading {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(2 6 23 / 0.26);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 180ms ease,
+    visibility 180ms ease;
+}
+
+.atlas-dashboard-route-loading--visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.atlas-dashboard-route-loading__panel {
+  display: flex;
+  max-width: min(18rem, calc(100% - 2rem));
+  min-width: min(15rem, calc(100% - 2rem));
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.15rem;
+  text-align: center;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgb(0 0 0 / 0.08);
+  box-shadow:
+    0 10px 24px rgb(2 6 23 / 0.24),
+    0 1px 8px rgb(2 6 23 / 0.16);
+}
+
+.atlas-dashboard-route-loading__spinner {
+  font-size: 2rem;
+  color: var(--color-primary);
+  font-variation-settings:
+    'FILL' 1,
+    'wght' 600,
+    'GRAD' 0,
+    'opsz' 24;
+  animation: atlas-dashboard-route-spin 0.85s linear infinite;
+}
+
+.atlas-dashboard-route-loading__text {
+  margin: 0;
+  font-family: var(--font-body, Inter, sans-serif);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #191c1d;
 }
 
 /* Party chip (upper right) — inset from edge so it clears the close control */
