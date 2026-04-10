@@ -38,6 +38,20 @@ let routePulseMarker: L.CircleMarker | null = null
 let routeAnimToken = 0
 let routeLoadingOverlayEl: HTMLElement | null = null
 let routeLoadingMessageInterval: ReturnType<typeof setInterval> | null = null
+let routeExcludedVoterIds = new Set<string>()
+
+function addRouteExcludedVoterId(voterId: string): void {
+  routeExcludedVoterIds.add(voterId)
+}
+
+function removeRouteExcludedVoterId(voterId: string): void {
+  routeExcludedVoterIds.delete(voterId)
+}
+
+/** After a successful draw; used to rebuild the tour when excluding a stop. */
+let lastCanvassRouteRecalc: { startVoterId?: string; startDistrictIndex?: number } | null = null
+
+let canvassRoutePolylineActive = false
 
 const OSRM_MAX_WAYPOINTS = 26
 const OSRM_REQUEST_TIMEOUT_MS = 7000
@@ -247,6 +261,12 @@ function animatePulseAlongRoute(path: L.LatLngTuple[], durationMs: number, token
 const START_ROUTE_POPUP_BTN_CLASS =
   'w-full mt-3 bg-gradient-to-b from-primary to-primary-container text-on-primary font-black py-3 text-xs tracking-widest uppercase rounded-lg active:scale-[0.98] transition-transform shadow-sm border-0 cursor-pointer'
 
+const REMOVE_FROM_ROUTE_POPUP_BTN_CLASS =
+  'w-full mt-2 bg-transparent text-on-surface font-bold py-2.5 text-xs tracking-widest uppercase rounded-lg border border-outline-variant active:scale-[0.98] transition-transform cursor-pointer'
+
+const RESTORE_ROUTE_POPUP_BTN_CLASS =
+  'w-full mt-2 bg-secondary-container text-on-secondary-container font-bold py-2.5 text-xs tracking-widest uppercase rounded-lg active:scale-[0.98] transition-transform cursor-pointer border-0'
+
 function tacticalPinPopupClassName(pin: DelawareHousePin): string {
   const base = 'atlas-map-popup-wrap'
   const v = getVoter(pin.voterId)
@@ -280,11 +300,24 @@ function tacticalDivIcon(tag: string): L.DivIcon {
   })
 }
 
+function tacticalPinRouteAdjustHtml(pin: DelawareHousePin): string {
+  const pinDistrictIndex = houseDistrictIndexAtLatLng(pin.lat, pin.lng)
+  const activeDistrictIndex = readActiveRouteDistrictIndex()
+  if (activeDistrictIndex == null || activeDistrictIndex !== pinDistrictIndex) return ''
+  const esc = pin.voterId.replace(/"/g, '&quot;')
+  const excluded = routeExcludedVoterIds.has(pin.voterId)
+  if (excluded) {
+    return `<button type="button" data-dashboard-route-restore="${esc}" data-dashboard-route-district="${pinDistrictIndex}" class="${RESTORE_ROUTE_POPUP_BTN_CLASS}">Include in route</button>`
+  }
+  return `<button type="button" data-dashboard-route-remove="${esc}" data-dashboard-route-district="${pinDistrictIndex}" class="${REMOVE_FROM_ROUTE_POPUP_BTN_CLASS}">Remove from route</button>`
+}
+
 function tacticalPinPopupHtml(pin: DelawareHousePin): string {
   const v = getVoter(pin.voterId)
   const voterFileHref = `#/voters/${encodeURIComponent(pin.voterId)}`
   const pinDistrictIndex = houseDistrictIndexAtLatLng(pin.lat, pin.lng)
   const startRouteBtn = `<button type="button" data-dashboard-route="${pin.voterId.replace(/"/g, '&quot;')}" data-dashboard-route-district="${pinDistrictIndex}" class="${START_ROUTE_POPUP_BTN_CLASS}">Start Route</button>`
+  const routeAdjustBtn = tacticalPinRouteAdjustHtml(pin)
 
   if (!v) {
     const safeAddr = pin.address
@@ -292,7 +325,7 @@ function tacticalPinPopupHtml(pin: DelawareHousePin): string {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
-    return `<div class="atlas-map-popup atlas-map-popup-panel bg-surface-container-low p-4 rounded-lg" style="font:500 13px/1.35 var(--font-body,Inter,sans-serif);color:#191c1d"><p style="font-weight:700;margin:0 0 8px">${safeAddr}</p><p style="margin:0 0 10px;color:#3f4446;font-size:12px">No voter record for this pin.</p><a href="${voterFileHref}" style="color:#9e001f;font-weight:700;font-size:14px;text-decoration:underline;text-underline-offset:2px">Open voter file →</a>${startRouteBtn}</div>`
+    return `<div class="atlas-map-popup atlas-map-popup-panel bg-surface-container-low p-4 rounded-lg" style="font:500 13px/1.35 var(--font-body,Inter,sans-serif);color:#191c1d"><p style="font-weight:700;margin:0 0 8px">${safeAddr}</p><p style="margin:0 0 10px;color:#3f4446;font-size:12px">No voter record for this pin.</p><a href="${voterFileHref}" style="color:#9e001f;font-weight:700;font-size:14px;text-decoration:underline;text-underline-offset:2px">Open voter file →</a>${startRouteBtn}${routeAdjustBtn}</div>`
   }
 
   return `<div class="atlas-map-popup" style="font:500 13px/1.35 var(--font-body,Inter,sans-serif);color:#191c1d;min-width:260px">
@@ -302,6 +335,7 @@ function tacticalPinPopupHtml(pin: DelawareHousePin): string {
         Open voter file<span class="text-[0.92em] opacity-90" aria-hidden="true">→</span>
       </a>
       ${startRouteBtn}
+      ${routeAdjustBtn}
     </article>
   </div>`
 }
@@ -482,15 +516,59 @@ export function clearDashboardCanvassRoute(): void {
   routePulseMarker = null
   hideDashboardRouteLoading()
   notifyRouteEstimate(null)
+  canvassRoutePolylineActive = false
+  lastCanvassRouteRecalc = null
+}
+
+function hasDistrictIndexHint(startDistrictIndex?: number): startDistrictIndex is number {
+  return (
+    startDistrictIndex != null &&
+    Number.isInteger(startDistrictIndex) &&
+    startDistrictIndex >= 0 &&
+    startDistrictIndex < representativeDistrictMapCentroids.length
+  )
+}
+
+function districtIndexFromSectorLabel(sectorLabel: string): number | null {
+  const m = sectorLabel.match(/District\s+(\d+)/i)
+  if (!m) return null
+  const idx = Number(m[1]) - 1
+  if (!Number.isFinite(idx)) return null
+  if (idx < 0 || idx >= representativeDistrictMapCentroids.length) return null
+  return idx
+}
+
+function readActiveRouteDistrictIndex(): number | null {
+  if (!canvassRoutePolylineActive || !lastCanvassRouteRecalc) return null
+  if (hasDistrictIndexHint(lastCanvassRouteRecalc.startDistrictIndex)) {
+    return lastCanvassRouteRecalc.startDistrictIndex
+  }
+  return districtIndexFromSectorLabel(readDashboardSectorSelection())
+}
+
+function getCanvassRoutePinsRaw(startDistrictIndex: number | undefined): DelawareHousePin[] {
+  const useDistrict = hasDistrictIndexHint(startDistrictIndex)
+  return useDistrict
+    ? delawareVerifiedHousePins.filter(
+        (p) => houseDistrictIndexAtLatLng(p.lat, p.lng) === startDistrictIndex,
+      )
+    : getDelawareHousePinsForDashboardSector(readDashboardSectorSelection())
+}
+
+function getCanvassRoutePinsEligible(startDistrictIndex: number | undefined): DelawareHousePin[] {
+  return getCanvassRoutePinsRaw(startDistrictIndex).filter((p) => !routeExcludedVoterIds.has(p.voterId))
 }
 
 /** Driving directions (OSRM) when ≤26 stops; otherwise straight segments. Animated polyline + pulse. */
 export async function runDashboardCanvassRoute(
   startVoterId?: string,
   startDistrictIndex?: number,
+  opts?: { resetExcludedPins?: boolean },
 ): Promise<void> {
   const map = activeDashboardMap
   if (!map || !routeLayerGroup) return
+  const resetExcludedPins = opts?.resetExcludedPins === true
+  if (resetExcludedPins) routeExcludedVoterIds = new Set()
 
   canvassRoutePrepare?.(startVoterId, startDistrictIndex)
 
@@ -499,16 +577,8 @@ export async function runDashboardCanvassRoute(
 
   map.closePopup()
 
-  const hasDistrictHint =
-    startDistrictIndex != null &&
-    Number.isInteger(startDistrictIndex) &&
-    startDistrictIndex >= 0 &&
-    startDistrictIndex < representativeDistrictMapCentroids.length
-  const pins = hasDistrictHint
-    ? delawareVerifiedHousePins.filter(
-        (p) => houseDistrictIndexAtLatLng(p.lat, p.lng) === startDistrictIndex,
-      )
-    : getDelawareHousePinsForDashboardSector(readDashboardSectorSelection())
+  const hasDistrictHint = hasDistrictIndexHint(startDistrictIndex)
+  const pins = getCanvassRoutePinsEligible(startDistrictIndex)
   if (pins.length < 2) return
 
   const startPin =
@@ -561,7 +631,14 @@ export async function runDashboardCanvassRoute(
       }
       map.invalidateSize()
       animatePulseAlongRoute(pathLatLngs, ROUTE_PULSE_MS, myToken)
-      if (myToken === routeAnimToken) notifyRouteEstimate(durationSeconds)
+      if (myToken === routeAnimToken) {
+        notifyRouteEstimate(durationSeconds)
+        lastCanvassRouteRecalc = {
+          startVoterId: ordered[0]!.voterId,
+          startDistrictIndex: hasDistrictHint ? startDistrictIndex : undefined,
+        }
+        canvassRoutePolylineActive = true
+      }
     } finally {
       if (myToken === routeAnimToken) hideDashboardRouteLoading()
     }
@@ -581,7 +658,14 @@ export async function runDashboardCanvassRoute(
 
     map.invalidateSize()
     animatePulseAlongRoute(pathLatLngs, ROUTE_PULSE_MS, myToken)
-    if (myToken === routeAnimToken) notifyRouteEstimate(durationSeconds)
+    if (myToken === routeAnimToken) {
+      notifyRouteEstimate(durationSeconds)
+      lastCanvassRouteRecalc = {
+        startVoterId: ordered[0]!.voterId,
+        startDistrictIndex: hasDistrictHint ? startDistrictIndex : undefined,
+      }
+      canvassRoutePolylineActive = true
+    }
   }
 }
 
@@ -696,6 +780,9 @@ export function mountDashboardMap(root: HTMLElement): void {
       className: tacticalPinPopupClassName(pin),
       closeButton: true,
     })
+    marker.on('popupopen', () => {
+      marker.setPopupContent(tacticalPinPopupHtml(pin))
+    })
 
     const districtIndex = houseDistrictIndexAtLatLng(pin.lat, pin.lng)
     const bucket = districtBuckets.get(districtIndex)
@@ -796,6 +883,49 @@ export function mountDashboardMap(root: HTMLElement): void {
   root.addEventListener(
     'click',
     (e) => {
+      const removeBtn = (e.target as HTMLElement).closest<HTMLElement>(
+        '[data-dashboard-route-remove]',
+      )
+      if (removeBtn && el.contains(removeBtn)) {
+        e.preventDefault()
+        e.stopPropagation()
+        const voterId = removeBtn.dataset.dashboardRouteRemove?.trim()
+        if (!voterId) return
+        addRouteExcludedVoterId(voterId)
+        map.closePopup()
+        if (canvassRoutePolylineActive && lastCanvassRouteRecalc) {
+          const remaining = getCanvassRoutePinsEligible(lastCanvassRouteRecalc.startDistrictIndex)
+          if (remaining.length < 2) {
+            clearDashboardCanvassRoute()
+          } else {
+            void runDashboardCanvassRoute(
+              lastCanvassRouteRecalc.startVoterId,
+              lastCanvassRouteRecalc.startDistrictIndex,
+            )
+          }
+        }
+        return
+      }
+
+      const restoreBtn = (e.target as HTMLElement).closest<HTMLElement>(
+        '[data-dashboard-route-restore]',
+      )
+      if (restoreBtn && el.contains(restoreBtn)) {
+        e.preventDefault()
+        e.stopPropagation()
+        const voterId = restoreBtn.dataset.dashboardRouteRestore?.trim()
+        if (!voterId) return
+        removeRouteExcludedVoterId(voterId)
+        map.closePopup()
+        if (canvassRoutePolylineActive && lastCanvassRouteRecalc) {
+          void runDashboardCanvassRoute(
+            lastCanvassRouteRecalc.startVoterId,
+            lastCanvassRouteRecalc.startDistrictIndex,
+          )
+        }
+        return
+      }
+
       const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-dashboard-route]')
       if (!btn) return
       if (!el.contains(btn)) return
@@ -807,7 +937,7 @@ export function mountDashboardMap(root: HTMLElement): void {
         districtRaw != null && districtRaw !== '' && Number.isFinite(Number(districtRaw))
           ? Number(districtRaw)
           : undefined
-      void runDashboardCanvassRoute(voterId || undefined, districtIndex)
+      void runDashboardCanvassRoute(voterId || undefined, districtIndex, { resetExcludedPins: true })
     },
     { signal, capture: true },
   )
@@ -840,6 +970,8 @@ export function mountDashboardMap(root: HTMLElement): void {
     routeLayerGroup = null
     destroyRouteLoadingOverlay()
     notifyRouteEstimate(null)
+    canvassRoutePolylineActive = false
+    lastCanvassRouteRecalc = null
     map.off('locationfound', onLocateSuccess)
     map.off('locationerror', onLocateError)
     map.off('zoomend', syncPinLayerVisibility)

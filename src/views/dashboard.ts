@@ -372,7 +372,9 @@ export function bindDashboard(root: HTMLElement): void {
           districtRaw != null && districtRaw !== '' && Number.isFinite(Number(districtRaw))
             ? Number(districtRaw)
             : undefined
-        void runDashboardCanvassRoute(vid || undefined, districtIndex)
+        void runDashboardCanvassRoute(vid || undefined, districtIndex, {
+          resetExcludedPins: true,
+        })
         return
       }
       const t = (e.target as HTMLElement).closest<HTMLElement>('[data-goto]')
