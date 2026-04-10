@@ -27,6 +27,27 @@ const PIN_COLORS: Record<string, string> = {
 
 let teardown: (() => void) | null = null
 
+const START_ROUTE_POPUP_BTN_CLASS =
+  'w-full mt-3 bg-gradient-to-b from-primary to-primary-container text-on-primary font-black py-3 text-xs tracking-widest uppercase rounded-lg active:scale-[0.98] transition-transform shadow-sm border-0 cursor-pointer'
+
+function tacticalPinPopupClassName(pin: DelawareHousePin): string {
+  const base = 'atlas-map-popup-wrap'
+  const v = getVoter(pin.voterId)
+  if (!v) return `${base} atlas-popup-accent-none`
+  switch (v.party) {
+    case 'REP':
+      return `${base} atlas-popup-accent-rep`
+    case 'DEM':
+      return `${base} atlas-popup-accent-dem`
+    case 'IND':
+      return `${base} atlas-popup-accent-ind`
+    case 'PERS':
+      return `${base} atlas-popup-accent-pers`
+    default:
+      return `${base} atlas-popup-accent-none`
+  }
+}
+
 function tacticalDivIcon(tag: string): L.DivIcon {
   const color = PIN_COLORS[tag] ?? '#4e5d86'
   return L.divIcon({
@@ -45,21 +66,25 @@ function tacticalDivIcon(tag: string): L.DivIcon {
 function tacticalPinPopupHtml(pin: DelawareHousePin): string {
   const v = getVoter(pin.voterId)
   const voterFileHref = `#/voters/${encodeURIComponent(pin.voterId)}`
+  const logPath = `/log/${encodeURIComponent(pin.voterId)}`
+  const startRouteBtn = `<button type="button" data-goto="${logPath}" class="${START_ROUTE_POPUP_BTN_CLASS}">Start Route</button>`
+
   if (!v) {
     const safeAddr = pin.address
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
-    return `<div class="atlas-map-popup"><p style="font-weight:700;margin:0 0 8px">${safeAddr}</p><p style="margin:0 0 10px;color:#3f4446;font-size:12px">No voter record for this pin.</p><a href="${voterFileHref}" style="color:#9e001f;font-weight:700;font-size:14px;text-decoration:underline;text-underline-offset:2px">Open voter file →</a></div>`
+    return `<div class="atlas-map-popup atlas-map-popup-panel bg-surface-container-low p-4 rounded-lg" style="font:500 13px/1.35 var(--font-body,Inter,sans-serif);color:#191c1d"><p style="font-weight:700;margin:0 0 8px">${safeAddr}</p><p style="margin:0 0 10px;color:#3f4446;font-size:12px">No voter record for this pin.</p><a href="${voterFileHref}" style="color:#9e001f;font-weight:700;font-size:14px;text-decoration:underline;text-underline-offset:2px">Open voter file →</a>${startRouteBtn}</div>`
   }
 
   return `<div class="atlas-map-popup" style="font:500 13px/1.35 var(--font-body,Inter,sans-serif);color:#191c1d;min-width:260px">
-    <article class="bg-surface-container-low p-4 flex flex-col ${cardAccent(v.party)} shadow-sm rounded-lg -m-1">
+    <article class="atlas-map-popup-card bg-surface-container-low p-4 flex flex-col ${cardAccent(v.party)} rounded-lg">
       ${priorityTargetBodyHtml(v)}
       <a href="#/voters/${v.id}" class="inline-flex items-center gap-1 text-sm font-medium text-primary underline-offset-2 hover:underline mt-1 w-fit">
         Open voter file<span class="text-[0.92em] opacity-90" aria-hidden="true">→</span>
       </a>
+      ${startRouteBtn}
     </article>
   </div>`
 }
@@ -230,7 +255,7 @@ export function mountDashboardMap(root: HTMLElement): void {
     marker.addTo(individualPinsLayer)
     pinLayers.push(marker)
     marker.bindPopup(tacticalPinPopupHtml(pin), {
-      className: 'atlas-map-popup-wrap',
+      className: tacticalPinPopupClassName(pin),
       closeButton: true,
     })
 

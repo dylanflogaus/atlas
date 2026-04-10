@@ -8,6 +8,8 @@ export interface ShellOptions {
   showBack?: boolean
   statusLine?: string
   hideNav?: boolean
+  /** Allow main content to extend to the viewport bottom under the fixed dock (no shell bottom padding). */
+  fullBleedMain?: boolean
 }
 
 function navItem(
@@ -26,7 +28,14 @@ function navItem(
 }
 
 export function renderShell(mainHtml: string, opts: ShellOptions): string {
-  const { nav, title = 'Project Atlas', showBack = false, statusLine = 'APR 09 • 85%', hideNav = false } = opts
+  const {
+    nav,
+    title = 'Project Atlas',
+    showBack = false,
+    statusLine = 'APR 09 • 85%',
+    hideNav = false,
+    fullBleedMain = false,
+  } = opts
   const offlineOn = isForceOffline()
 
   const header = `
@@ -59,7 +68,7 @@ export function renderShell(mainHtml: string, opts: ShellOptions): string {
     </nav>`
 
   return `
-    <div class="min-h-dvh bg-background pb-nav font-body text-on-background selection:bg-primary/20">
+    <div class="min-h-dvh bg-background ${fullBleedMain ? '' : 'pb-nav'} font-body text-on-background selection:bg-primary/20">
       ${header}
       <div id="view-root">${mainHtml}</div>
       ${bottomNav}

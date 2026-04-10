@@ -49,6 +49,7 @@ function render(): void {
   }
 
   if (path === '/' || path === '') {
+    shellOpts = { ...shellOpts, fullBleedMain: true }
     mainHtml = renderDashboard()
   } else if (path === '/voters') {
     shellOpts = { ...shellOpts, showBack: true, nav: 'voters' }

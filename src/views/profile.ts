@@ -83,6 +83,10 @@ export function renderProfile(v: Voter): string {
               <span class="material-symbols-outlined text-base">edit_note</span>
               Quick Log
             </button>
+            <button type="button" data-goto="/log/${v.id}" class="inline-flex items-center gap-2 rounded-lg bg-gradient-to-b from-primary to-primary-container px-6 py-2.5 text-sm font-black text-on-primary shadow-lg shadow-primary/25 uppercase tracking-widest active:scale-95 transition-transform">
+              <span class="material-symbols-outlined text-base">near_me</span>
+              Start Route
+            </button>
           </div>
         </div>
       </section>

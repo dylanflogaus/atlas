@@ -51,6 +51,14 @@ function sectorLabelForValue(value: string): string {
   return o?.label ?? value
 }
 
+/** Full-width headline for the map status bar (matches stakeholder mock typography). */
+function sectorBarHeadline(value: string): string {
+  if (value === dashboardStats.sector) return sectorLabelForValue(value)
+  const m = value.match(/Representative District\s+(\d+)/i)
+  if (m) return `Delaware — District ${m[1]}`
+  return sectorLabelForValue(value)
+}
+
 function sectorListboxHtml(selected: string): string {
   return getSectorOptions()
     .map((o) => {
@@ -74,7 +82,7 @@ export function renderDashboard(): string {
   return `
     <main class="min-h-0">
       <section
-        class="relative h-[calc(100dvh-4rem-4.5rem-env(safe-area-inset-bottom,0px))] w-full overflow-hidden bg-surface-dim"
+        class="relative h-[calc(100dvh-4rem)] w-full overflow-hidden bg-surface-dim"
         aria-label="Sector map and priority targets"
       >
         <div id="atlas-dashboard-map" class="absolute inset-0 z-0 min-h-[200px]" role="application" aria-label="Live sector map"></div>
@@ -89,7 +97,7 @@ export function renderDashboard(): string {
             <span class="material-symbols-outlined fill">my_location</span>
           </button>
         </div>
-        <div class="pointer-events-none absolute bottom-0 left-0 right-0 z-10 flex flex-col gap-3 p-4">
+        <div class="pointer-events-none absolute bottom-0 left-0 right-0 z-10 flex flex-col gap-3 pt-4 px-4 pb-[calc(1rem+4.5rem+env(safe-area-inset-bottom,0px))]">
           <div
             id="atlas-priority-panel"
             class="group pointer-events-auto space-y-2 ${priorityCollapsed ? 'is-collapsed' : ''}"
@@ -148,49 +156,40 @@ export function renderDashboard(): string {
               </div>
             </div>
           </div>
-          <div class="pointer-events-auto rounded-lg border border-white/10 bg-slate-950/92 px-2 py-1 shadow-2xl shadow-black/35 backdrop-blur-xl">
-            <div class="flex items-center gap-2">
-              <div class="flex shrink-0 items-center gap-1.5">
-                <span class="shrink-0 text-[8px] font-semibold uppercase tracking-wide text-slate-400 leading-none">Sector</span>
-                <div class="relative w-[13rem] shrink-0" data-dashboard-sector-wrap>
-                  <button
-                    type="button"
-                    id="atlas-dashboard-sector-trigger"
-                    data-dashboard-sector-trigger
-                    class="atlas-dashboard-sector-trigger w-full"
-                    aria-haspopup="listbox"
-                    aria-expanded="false"
-                    aria-controls="atlas-dashboard-sector-listbox"
-                    aria-label="Select map sector"
-                  >
-                    <span data-sector-label class="min-w-0 flex-1 truncate text-left font-headline text-[10px] leading-none text-white">${sectorLabelForValue(selectedSector).replace(/</g, '&lt;')}</span>
-                    <span class="material-symbols-outlined atlas-dashboard-sector-chevron -rotate-180 shrink-0 text-[0.95rem] text-slate-400 transition-transform duration-200 motion-reduce:transition-none" aria-hidden="true">expand_more</span>
-                  </button>
-                  <ul
-                    id="atlas-dashboard-sector-listbox"
-                    data-dashboard-sector-list
-                    class="atlas-sector-list scrolling-hide-scrollbar hidden"
-                    role="listbox"
-                    aria-labelledby="atlas-dashboard-sector-trigger"
-                    tabindex="-1"
-                  >
-                    ${sectorListboxHtml(selectedSector)}
-                  </ul>
-                </div>
-              </div>
-              <div class="flex min-h-0 min-w-0 flex-1 items-center justify-end gap-2 border-l border-white/[0.06] pl-2">
-                <div class="flex min-w-0 items-baseline justify-end gap-1.5">
-                  <span class="shrink-0 text-[8px] font-semibold uppercase tracking-wide text-slate-500">Est.</span>
-                  <span class="truncate font-mono text-[11px] tabular-nums leading-none text-white">${dashboardStats.timeRemaining}</span>
-                </div>
+          <div class="pointer-events-auto atlas-dashboard-status-bar flex min-w-0 items-stretch shadow-2xl shadow-black/40">
+            <div class="flex min-h-0 min-w-0 flex-1 flex-col justify-center py-3 pl-5 pr-3">
+              <span class="atlas-dashboard-status-label">Current sector</span>
+              <div class="relative mt-1 min-w-0" data-dashboard-sector-wrap>
                 <button
                   type="button"
-                  data-goto="/voters"
-                  class="shrink-0 rounded border border-white/10 bg-white/[0.06] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-primary transition-colors hover:border-white/15 hover:bg-white/10"
+                  id="atlas-dashboard-sector-trigger"
+                  data-dashboard-sector-trigger
+                  class="atlas-dashboard-sector-trigger w-full justify-start"
+                  aria-haspopup="listbox"
+                  aria-expanded="false"
+                  aria-controls="atlas-dashboard-sector-listbox"
+                  aria-label="Select map sector"
                 >
-                  View all
+                  <span class="atlas-dashboard-sector-value-row">
+                    <span data-sector-label class="min-w-0 truncate text-left">${sectorBarHeadline(selectedSector).replace(/</g, '&lt;')}</span>
+                    <span class="material-symbols-outlined atlas-dashboard-sector-chevron shrink-0" aria-hidden="true">chevron_right</span>
+                  </span>
                 </button>
+                <ul
+                  id="atlas-dashboard-sector-listbox"
+                  data-dashboard-sector-list
+                  class="atlas-sector-list scrolling-hide-scrollbar hidden"
+                  role="listbox"
+                  aria-labelledby="atlas-dashboard-sector-trigger"
+                  tabindex="-1"
+                >
+                  ${sectorListboxHtml(selectedSector)}
+                </ul>
               </div>
+            </div>
+            <div class="atlas-dashboard-status-time flex shrink-0 flex-col items-end justify-center border-l border-white/[0.08] py-3 pl-6 pr-5">
+              <span class="atlas-dashboard-status-label">Est. time</span>
+              <span class="atlas-dashboard-status-value mt-1 tabular-nums">${dashboardStats.timeRemaining.replace(/</g, '&lt;')}</span>
             </div>
           </div>
         </div>
@@ -218,7 +217,7 @@ function closeSectorListbox(root: HTMLElement): void {
   if (!list || !trig) return
   list.classList.add('hidden')
   trig.setAttribute('aria-expanded', 'false')
-  chev?.classList.add('-rotate-180')
+  chev?.classList.remove('atlas-dashboard-sector-chevron--open')
 }
 
 function openSectorListbox(root: HTMLElement): void {
@@ -228,7 +227,7 @@ function openSectorListbox(root: HTMLElement): void {
   if (!list || !trig) return
   list.classList.remove('hidden')
   trig.setAttribute('aria-expanded', 'true')
-  chev?.classList.remove('-rotate-180')
+  chev?.classList.add('atlas-dashboard-sector-chevron--open')
 }
 
 function toggleSectorListbox(root: HTMLElement): void {
@@ -245,7 +244,7 @@ function updateSectorListSelection(root: HTMLElement, value: string): void {
 
 function applyDashboardSectorSelection(root: HTMLElement, value: string): void {
   const labelEl = root.querySelector<HTMLElement>('[data-sector-label]')
-  if (labelEl) labelEl.textContent = sectorLabelForValue(value)
+  if (labelEl) labelEl.textContent = sectorBarHeadline(value)
   try {
     sessionStorage.setItem(DASHBOARD_SECTOR_STORAGE_KEY, value)
   } catch {
