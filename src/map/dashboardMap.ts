@@ -93,6 +93,18 @@ export type DashboardRouteEstimateListener = (totalSeconds: number | null) => vo
 
 let routeEstimateListener: DashboardRouteEstimateListener | null = null
 
+/** Sync sector selection before route generation (dashboard wires this). */
+export type DashboardCanvassRoutePrepareFn = (
+  startVoterId?: string,
+  startDistrictIndex?: number,
+) => void
+
+let canvassRoutePrepare: DashboardCanvassRoutePrepareFn | null = null
+
+export function setDashboardCanvassRoutePrepare(fn: DashboardCanvassRoutePrepareFn | null): void {
+  canvassRoutePrepare = fn
+}
+
 /** Wired from the dashboard so the status bar can show route duration; cleared on unmount. */
 export function setDashboardRouteEstimateListener(fn: DashboardRouteEstimateListener | null): void {
   routeEstimateListener = fn
@@ -271,7 +283,8 @@ function tacticalDivIcon(tag: string): L.DivIcon {
 function tacticalPinPopupHtml(pin: DelawareHousePin): string {
   const v = getVoter(pin.voterId)
   const voterFileHref = `#/voters/${encodeURIComponent(pin.voterId)}`
-  const startRouteBtn = `<button type="button" data-dashboard-route="${pin.voterId.replace(/"/g, '&quot;')}" class="${START_ROUTE_POPUP_BTN_CLASS}">Start Route</button>`
+  const pinDistrictIndex = houseDistrictIndexAtLatLng(pin.lat, pin.lng)
+  const startRouteBtn = `<button type="button" data-dashboard-route="${pin.voterId.replace(/"/g, '&quot;')}" data-dashboard-route-district="${pinDistrictIndex}" class="${START_ROUTE_POPUP_BTN_CLASS}">Start Route</button>`
 
   if (!v) {
     const safeAddr = pin.address
@@ -472,16 +485,30 @@ export function clearDashboardCanvassRoute(): void {
 }
 
 /** Driving directions (OSRM) when ≤26 stops; otherwise straight segments. Animated polyline + pulse. */
-export async function runDashboardCanvassRoute(startVoterId?: string): Promise<void> {
+export async function runDashboardCanvassRoute(
+  startVoterId?: string,
+  startDistrictIndex?: number,
+): Promise<void> {
   const map = activeDashboardMap
   if (!map || !routeLayerGroup) return
+
+  canvassRoutePrepare?.(startVoterId, startDistrictIndex)
 
   clearDashboardCanvassRoute()
   const myToken = routeAnimToken
 
   map.closePopup()
 
-  const pins = getDelawareHousePinsForDashboardSector(readDashboardSectorSelection())
+  const hasDistrictHint =
+    startDistrictIndex != null &&
+    Number.isInteger(startDistrictIndex) &&
+    startDistrictIndex >= 0 &&
+    startDistrictIndex < representativeDistrictMapCentroids.length
+  const pins = hasDistrictHint
+    ? delawareVerifiedHousePins.filter(
+        (p) => houseDistrictIndexAtLatLng(p.lat, p.lng) === startDistrictIndex,
+      )
+    : getDelawareHousePinsForDashboardSector(readDashboardSectorSelection())
   if (pins.length < 2) return
 
   const startPin =
@@ -648,10 +675,11 @@ export function mountDashboardMap(root: HTMLElement): void {
 
   routeLayerGroup = L.layerGroup().addTo(map)
 
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    maxZoom: 20,
+    subdomains: 'abcd',
     attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
   }).addTo(map)
 
   const individualPinsLayer = L.layerGroup()
@@ -772,8 +800,14 @@ export function mountDashboardMap(root: HTMLElement): void {
       if (!btn) return
       if (!el.contains(btn)) return
       e.preventDefault()
+      e.stopPropagation()
       const voterId = btn.dataset.dashboardRoute?.trim()
-      void runDashboardCanvassRoute(voterId || undefined)
+      const districtRaw = btn.dataset.dashboardRouteDistrict
+      const districtIndex =
+        districtRaw != null && districtRaw !== '' && Number.isFinite(Number(districtRaw))
+          ? Number(districtRaw)
+          : undefined
+      void runDashboardCanvassRoute(voterId || undefined, districtIndex)
     },
     { signal, capture: true },
   )

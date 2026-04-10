@@ -2,7 +2,9 @@ import {
   DASHBOARD_SECTOR_STORAGE_KEY,
   dashboardStats,
   delawareRepresentativeDistricts,
+  getDelawareHousePinsForDashboardSector,
   getPriorityTargetsForSector,
+  houseDistrictIndexAtLatLng,
   readDashboardSectorSelection,
   type Voter,
 } from '../data'
@@ -12,6 +14,7 @@ import {
   invalidateDashboardMapSize,
   mountDashboardMap,
   runDashboardCanvassRoute,
+  setDashboardCanvassRoutePrepare,
   setDashboardRouteEstimateListener,
 } from '../map/dashboardMap'
 import { navigate } from '../router'
@@ -91,6 +94,41 @@ function formatRouteEstimateLabel(totalSeconds: number | null): string {
 function updateRouteEstimateDisplay(root: HTMLElement, totalSeconds: number | null): void {
   const el = root.querySelector<HTMLElement>('[data-dashboard-route-estimate]')
   if (el) el.textContent = formatRouteEstimateLabel(totalSeconds)
+}
+
+function districtIndexForSectorLabel(label: string): number | null {
+  const m = label.match(/District\s+(\d+)/i)
+  if (!m) return null
+  const n = Number(m[1])
+  if (!Number.isFinite(n) || n < 1 || n > delawareRepresentativeDistricts.length) return null
+  return n - 1
+}
+
+function ensureSectorMatchesRouteStart(
+  root: HTMLElement,
+  startVoterId?: string,
+  startDistrictIndex?: number,
+): void {
+  let resolvedDistrictIndex: number | null = null
+  if (
+    startDistrictIndex != null &&
+    Number.isInteger(startDistrictIndex) &&
+    startDistrictIndex >= 0 &&
+    startDistrictIndex < delawareRepresentativeDistricts.length
+  ) {
+    resolvedDistrictIndex = startDistrictIndex
+  } else if (startVoterId) {
+    // Fallback for non-map route triggers (priority cards) where district hint is absent.
+    const selectedPins = getDelawareHousePinsForDashboardSector(readDashboardSectorSelection())
+    const match = selectedPins.find((p) => p.voterId === startVoterId)
+    if (match) resolvedDistrictIndex = houseDistrictIndexAtLatLng(match.lat, match.lng)
+  }
+  if (resolvedDistrictIndex == null) return
+  const selectedIndex = districtIndexForSectorLabel(readDashboardSectorSelection())
+  if (selectedIndex === resolvedDistrictIndex) return
+  const targetSector = delawareRepresentativeDistricts[resolvedDistrictIndex]
+  if (!targetSector) return
+  applyDashboardSectorSelection(root, targetSector)
 }
 
 export function renderDashboard(): string {
@@ -313,19 +351,28 @@ export function bindDashboard(root: HTMLElement): void {
   const { signal } = dashboardBindingsAbort
 
   setDashboardRouteEstimateListener((totalSeconds) => updateRouteEstimateDisplay(root, totalSeconds))
+  setDashboardCanvassRoutePrepare((startVoterId, startDistrictIndex) =>
+    ensureSectorMatchesRouteStart(root, startVoterId, startDistrictIndex),
+  )
   mountDashboardMap(root)
   updateRouteEstimateDisplay(root, null)
 
   root.addEventListener(
     'click',
     (e) => {
+      if (e.defaultPrevented) return
       const routeBtn = (e.target as HTMLElement).closest<HTMLElement>('[data-dashboard-route]')
       if (routeBtn) {
         const mapEl = root.querySelector<HTMLElement>('#atlas-dashboard-map')
         if (mapEl?.contains(routeBtn)) return
         e.preventDefault()
         const vid = routeBtn.dataset.dashboardRoute?.trim()
-        void runDashboardCanvassRoute(vid || undefined)
+        const districtRaw = routeBtn.dataset.dashboardRouteDistrict
+        const districtIndex =
+          districtRaw != null && districtRaw !== '' && Number.isFinite(Number(districtRaw))
+            ? Number(districtRaw)
+            : undefined
+        void runDashboardCanvassRoute(vid || undefined, districtIndex)
         return
       }
       const t = (e.target as HTMLElement).closest<HTMLElement>('[data-goto]')
@@ -420,6 +467,7 @@ export function bindDashboard(root: HTMLElement): void {
 
 export function unmountDashboardBindings(): void {
   setDashboardRouteEstimateListener(null)
+  setDashboardCanvassRoutePrepare(null)
   dashboardBindingsAbort?.abort()
   dashboardBindingsAbort = null
 }
