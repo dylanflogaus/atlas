@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Project Atlas - Mission Update</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@700;800;900&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "on-background": "#191c1d",
+                        "on-primary-fixed": "#410007",
+                        "on-error": "#ffffff",
+                        "primary": "#9e001f",
+                        "secondary-container": "#c1d1ff",
+                        "tertiary-fixed-dim": "#82d1ed",
+                        "surface-container-low": "#f3f4f5",
+                        "on-secondary-fixed-variant": "#37466c",
+                        "surface-bright": "#f8f9fa",
+                        "on-secondary-fixed": "#081a3e",
+                        "tertiary-fixed": "#b6ebff",
+                        "surface": "#f8f9fa",
+                        "tertiary": "#005468",
+                        "surface-container-high": "#e7e8e9",
+                        "primary-fixed": "#ffdad8",
+                        "surface-tint": "#bf0229",
+                        "surface-dim": "#d9dadb",
+                        "outline-variant": "#e5bdbb",
+                        "background": "#f8f9fa",
+                        "error": "#ba1a1a",
+                        "on-tertiary-fixed-variant": "#004e60",
+                        "on-primary-fixed-variant": "#92001c",
+                        "error-container": "#ffdad6",
+                        "surface-container-highest": "#e1e3e4",
+                        "inverse-on-surface": "#f0f1f2",
+                        "on-tertiary-container": "#b6ebff",
+                        "secondary-fixed-dim": "#b6c6f4",
+                        "surface-variant": "#e1e3e4",
+                        "inverse-primary": "#ffb3b1",
+                        "on-surface-variant": "#5c403f",
+                        "on-primary-container": "#ffdad8",
+                        "surface-container": "#edeeef",
+                        "on-tertiary-fixed": "#001f28",
+                        "primary-fixed-dim": "#ffb3b1",
+                        "on-surface": "#191c1d",
+                        "on-secondary-container": "#4a5981",
+                        "on-primary": "#ffffff",
+                        "primary-container": "#c8102e",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-container": "#006e87",
+                        "secondary": "#4e5d86",
+                        "inverse-surface": "#2e3132",
+                        "on-error-container": "#93000a",
+                        "outline": "#906f6e",
+                        "secondary-fixed": "#dae2ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .tonal-layering-surface-shift {
+            background: linear-gradient(to bottom, transparent, rgba(243, 244, 245, 1));
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased">
+<!-- TopAppBar Navigation Shell -->
+<header class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 shadow-sm fixed top-0 w-full z-50 flex items-center justify-between px-4 h-16 w-full">
+<div class="flex items-center gap-3">
+<button class="p-2 transition-all duration-200 active:scale-95 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg" style="">
+<span class="material-symbols-outlined text-slate-500" data-icon="arrow_back" style="">arrow_back</span>
+</button>
+<h1 class="font-headline font-bold uppercase tracking-tighter text-red-700 dark:text-red-500" style="">MISSION UPDATE</h1>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-lg font-black text-slate-900 dark:text-white" style="">ATLAS</span>
+<button class="p-2 transition-all duration-200 active:scale-95 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg" style="">
+<span class="material-symbols-outlined text-slate-500" data-icon="more_vert" style="">more_vert</span>
+</button>
+</div>
+</header>
+<main class="pt-24 pb-32 px-6 max-w-md mx-auto">
+<!-- Celebration Header -->
+<section class="flex flex-col items-center text-center mb-10">
+<div class="relative mb-6">
+<div class="absolute -top-4 -left-4 text-primary opacity-40">
+<span class="material-symbols-outlined text-4xl" data-icon="stars" style='font-variation-settings: "FILL" 1;'>stars</span>
+</div>
+<div class="absolute -bottom-2 -right-6 text-tertiary opacity-40">
+<span class="material-symbols-outlined text-3xl" data-icon="auto_awesome" style='font-variation-settings: "FILL" 1;'>auto_awesome</span>
+</div>
+<div class="w-24 h-24 bg-primary rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(158,0,31,0.2)] border-4 border-white">
+<span class="material-symbols-outlined text-white text-5xl" data-icon="check_circle" style='font-variation-settings: "FILL" 1;'>check_circle</span>
+</div>
+</div>
+<h2 class="font-headline text-3xl font-black uppercase tracking-tighter text-primary leading-none mb-2" style="">MISSION ACCOMPLISHED</h2>
+<p class="font-label text-secondary text-sm font-semibold tracking-widest uppercase" style="">Target Verified &amp; Synchronized</p>
+</section>
+<!-- Voter Confirmation Card -->
+<section class="bg-surface-container-low rounded-xl p-6 mb-8 border border-outline-variant/10 shadow-sm relative overflow-hidden">
+<div class="absolute top-0 right-0 p-2 opacity-5">
+<span class="material-symbols-outlined text-8xl" data-icon="person" style="">person</span>
+</div>
+<div class="relative z-10">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-12 h-12 bg-secondary rounded-lg flex items-center justify-center text-white font-bold text-xl" style="">
+                        JS
+                    </div>
+<div>
+<p class="font-label text-[10px] text-secondary font-bold uppercase tracking-widest mb-1" style="">Confirmed Voter</p>
+<h3 class="font-body text-xl font-bold text-on-surface" style="">Jameson Sterling</h3>
+</div>
+</div>
+<div class="flex items-center gap-2 bg-white/50 rounded-lg p-3">
+<span class="material-symbols-outlined text-primary text-sm" data-icon="location_on" style='font-variation-settings: "FILL" 1;'>location_on</span>
+<span class="text-xs font-semibold text-secondary uppercase tracking-tight" style="">ELSMERE - DISTRICT 3</span>
+</div>
+</div>
+</section>
+<!-- Gamification Progress -->
+<section class="bg-surface-container-highest rounded-xl p-6 mb-10 border border-outline-variant/15">
+<div class="flex justify-between items-end mb-4">
+<div>
+<p class="font-label text-xs font-bold text-secondary uppercase tracking-widest mb-1" style="">Field Performance</p>
+<h4 class="font-headline text-4xl font-black text-on-surface leading-none" style="">12<span class="text-xl text-secondary" style="">/20</span></h4>
+</div>
+<div class="text-right">
+<p class="font-label text-[10px] font-bold text-primary uppercase tracking-tighter bg-primary-fixed px-2 py-1 rounded" style="">Rank: Tactical Lead</p>
+</div>
+</div>
+<div class="relative h-4 bg-surface-dim rounded-full overflow-hidden mb-4">
+<div class="absolute top-0 left-0 h-full bg-primary rounded-full transition-all duration-1000 ease-out" style="width: 60%;">
+<div class="absolute inset-0 bg-gradient-to-r from-primary/0 via-white/20 to-primary/0 animate-pulse"></div>
+</div>
+</div>
+<div class="flex items-center gap-3 justify-center">
+<span class="material-symbols-outlined text-primary" data-icon="military_tech" style="">military_tech</span>
+<p class="font-body text-sm font-bold text-secondary uppercase tracking-tight" style="">8 MORE TO REACH ELITE STATUS</p>
+</div>
+</section>
+<!-- Tactical Actions -->
+<div class="flex flex-col gap-4">
+<button class="w-full bg-primary text-white font-headline font-bold py-4 rounded-lg flex items-center justify-center gap-3 shadow-lg active:scale-[0.98] transition-all duration-200" style="">
+<span class="material-symbols-outlined" data-icon="target" style="">target</span>
+                ENGAGE NEXT TARGET
+            </button>
+<button class="w-full border-2 border-secondary text-secondary font-headline font-bold py-4 rounded-lg flex items-center justify-center gap-3 bg-transparent hover:bg-secondary/5 active:scale-[0.98] transition-all duration-200" style="">
+<span class="material-symbols-outlined" data-icon="base_camp" style="">camping</span>
+                RETURN TO BASE
+            </button>
+</div>
+</main>
+<!-- BottomNavBar Navigation Shell -->
+<nav class="bg-white dark:bg-slate-950 fixed bottom-0 w-full z-50 border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] flex justify-around items-center h-16 w-full px-2">
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 pt-2 transition-colors hover:text-red-600 dark:hover:text-red-400">
+<span class="material-symbols-outlined" data-icon="map" style="">map</span>
+<span class="font-inter text-[10px] font-bold uppercase" style="">Map</span>
+</div>
+<div class="flex flex-col items-center justify-center text-red-700 dark:text-red-500 border-t-2 border-red-700 pt-2 transition-colors">
+<span class="material-symbols-outlined" data-icon="route" style='font-variation-settings: "FILL" 1;'>route</span>
+<span class="font-inter text-[10px] font-bold uppercase" style="">Route</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 pt-2 transition-colors hover:text-red-600 dark:hover:text-red-400">
+<span class="material-symbols-outlined" data-icon="groups" style="">groups</span>
+<span class="font-inter text-[10px] font-bold uppercase" style="">Voters</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 pt-2 transition-colors hover:text-red-600 dark:hover:text-red-400">
+<span class="material-symbols-outlined" data-icon="analytics" style="">analytics</span>
+<span class="font-inter text-[10px] font-bold uppercase" style="">Intel</span>
+</div>
+</nav>
+<!-- Background Decoration Image -->
+<div class="fixed inset-0 -z-10 opacity-5 pointer-events-none">
+<img class="w-full h-full object-cover" data-alt="abstract architectural blueprint with grid lines and tactical map overlay elements in monochrome grey" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDtfmOXocbcffjnvZ6rBHSWdGjSFP145fCbaroHOm1P9AQ52LUcMJdTfG53TGETD5ZFikwfc1WEFt4CNQBJeEUByRzTtcfIKWwIYe__3Ev9OwXqXLRDJLdzwQSJwmMSV6sLYviLKK0Y6BNceZADheauv8jnIdeRPGC4dBN8aftR8c5pQ2gCBZkc038Ip8ptBaudfFwLMam1sXeEsWtRbbrAbHJ9oOLCJtR-mLApFTyAQsj8W-3Cuy-8VGrpU96EaroQyavLAOmkQyQ" style=""/>
+</div>
+</body></html>

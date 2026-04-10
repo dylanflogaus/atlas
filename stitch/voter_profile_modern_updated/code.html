@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;800;900&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-on-surface": "#f0f1f2",
+                    "on-tertiary-fixed-variant": "#004e60",
+                    "on-error": "#ffffff",
+                    "surface-variant": "#e1e3e4",
+                    "secondary-fixed-dim": "#b6c6f4",
+                    "tertiary-container": "#006e87",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-fixed-variant": "#37466c",
+                    "surface-dim": "#d9dadb",
+                    "on-surface-variant": "#5c403f",
+                    "outline-variant": "#e5bdbb",
+                    "error-container": "#ffdad6",
+                    "secondary": "#4e5d86",
+                    "surface": "#f8f9fa",
+                    "on-secondary-fixed": "#081a3e",
+                    "on-primary-container": "#ffdad8",
+                    "primary-fixed": "#ffdad8",
+                    "on-secondary": "#ffffff",
+                    "primary": "#9e001f",
+                    "surface-bright": "#f8f9fa",
+                    "error": "#ba1a1a",
+                    "surface-container": "#edeeef",
+                    "outline": "#906f6e",
+                    "surface-tint": "#bf0229",
+                    "surface-container-low": "#f3f4f5",
+                    "surface-container-highest": "#e1e3e4",
+                    "secondary-container": "#c1d1ff",
+                    "inverse-surface": "#2e3132",
+                    "tertiary-fixed": "#b6ebff",
+                    "on-primary-fixed-variant": "#92001c",
+                    "on-secondary-container": "#4a5981",
+                    "on-tertiary-fixed": "#001f28",
+                    "primary-container": "#c8102e",
+                    "background": "#f8f9fa",
+                    "primary-fixed-dim": "#ffb3b1",
+                    "on-error-container": "#93000a",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary-fixed": "#410007",
+                    "surface-container-high": "#e7e8e9",
+                    "secondary-fixed": "#dae2ff",
+                    "on-background": "#191c1d",
+                    "on-tertiary-container": "#b6ebff",
+                    "on-primary": "#ffffff",
+                    "tertiary-fixed-dim": "#82d1ed",
+                    "inverse-primary": "#ffb3b1",
+                    "tertiary": "#005468",
+                    "on-surface": "#191c1d"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Public Sans"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Public Sans', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="w-full sticky top-0 z-50 bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/10 dark:border-slate-800/10 flex justify-between items-center px-4 h-16">
+<div class="flex items-center gap-3">
+<button class="p-2 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 rounded-lg transition-transform active:scale-95" style="">
+<span class="material-symbols-outlined text-red-700 dark:text-red-500" data-icon="arrow_back" style="">arrow_back</span>
+</button>
+<span class="text-lg font-black uppercase tracking-tighter text-red-700 dark:text-red-500" style="">Project Atlas</span>
+</div>
+<div class="text-slate-500 dark:text-slate-400 font-bold text-xs tracking-tight" style="">
+            OCT 24 • 85%
+        </div>
+</header>
+<main class="max-w-4xl mx-auto px-6 pt-8 space-y-8">
+<!-- Hero Profile Section: App Store Style -->
+<section class="relative overflow-hidden rounded-full bg-surface-container-lowest p-8 shadow-sm flex flex-col md:flex-row items-center md:items-end gap-6 border border-outline-variant/10">
+<div class="relative group">
+<div class="w-32 h-32 rounded-xl overflow-hidden shadow-lg border-2 border-white ring-4 ring-primary/5">
+<img alt="Voter Profile" class="w-full h-full object-cover" data-alt="portrait of a middle-aged man with kind eyes and short grey hair, wearing a casual navy blue button-down shirt, soft studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWnvdWP-t5GhC651-0r1WirXeWKWZS9FoqstgOVD3dOBKZO3Jf60JmGPdB0ZiZJfKOS6bWamhc4YbWehnLxcgrCAL4HK40wMpr2NgE8dX1PpVnFu0EmWsvKIanplHOdRx_YgqAx6qE9SQj0b_ss11dbSim198ofGZgaD5CBXjFfDCPJFJtZVWq8paGVOujDCf7d-26NkB-ssOAhaELQwk8Uqlrltmcq0KM0cMBhw04n5E_fd-l_2a3QhntXhw4vbIm9xANMZZjS9I" style=""/>
+</div>
+<div class="absolute -bottom-2 -right-2 bg-primary text-on-primary p-1.5 rounded-lg shadow-md">
+<span class="material-symbols-outlined text-sm" data-icon="verified" style='font-variation-settings: "FILL" 1;'>verified</span>
+</div>
+</div>
+<div class="flex-1 text-center md:text-left">
+<div class="flex flex-col md:flex-row md:items-center gap-2 mb-1">
+<h1 class="text-3xl font-extrabold tracking-tight text-on-surface" style="">Jameson Sterling</h1>
+<span class="inline-flex items-center px-2 py-0.5 rounded bg-secondary-container text-on-secondary-container text-[10px] font-bold tracking-widest uppercase" style="">Elsmere - District 3</span>
+</div>
+<p class="text-secondary font-medium text-lg" style="">Likely Supporter • High Propensity</p>
+<div class="mt-4 flex flex-wrap justify-center md:justify-start gap-3">
+<button class="bg-primary text-on-primary px-6 py-2.5 rounded-lg font-bold text-sm shadow-lg shadow-primary/20 flex items-center gap-2 active:scale-95 transition-transform" style="">
+<span class="material-symbols-outlined text-base" data-icon="phone" style="">phone</span>
+                        CALL NOW
+                    </button>
+<button class="bg-surface-container-high text-on-surface px-6 py-2.5 rounded-lg font-bold text-sm flex items-center gap-2 active:scale-95 transition-transform" style="">
+<span class="material-symbols-outlined text-base" data-icon="directions" style="">directions</span>
+                        DIRECTIONS
+                    </button>
+</div>
+</div>
+</section>
+<!-- Metric Bento Grid -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="bg-surface-container-low p-6 rounded-full border border-white/50 flex flex-col justify-between h-40 group hover:bg-white transition-colors">
+<span class="material-symbols-outlined text-primary mb-2" data-icon="bolt" style="">bolt</span>
+<div>
+<h3 class="text-xs font-bold uppercase tracking-widest text-secondary mb-1" style="">Engage Score</h3>
+<p class="text-4xl font-black text-on-surface" style="">92<span class="text-lg text-secondary" style="">/100</span></p>
+</div>
+</div>
+<div class="bg-surface-container-low p-6 rounded-full border border-white/50 flex flex-col justify-between h-40 group hover:bg-white transition-colors">
+<span class="material-symbols-outlined text-tertiary mb-2" data-icon="calendar_today" style="">calendar_today</span>
+<div>
+<h3 class="text-xs font-bold uppercase tracking-widest text-secondary mb-1" style="">Last Contact</h3>
+<p class="text-2xl font-black text-on-surface" style="">Oct 12, 2024</p>
+</div>
+</div>
+<div class="bg-surface-container-low p-6 rounded-full border border-white/50 flex flex-col justify-between h-40 group hover:bg-white transition-colors">
+<span class="material-symbols-outlined text-secondary mb-2" data-icon="how_to_vote" style="">how_to_vote</span>
+<div>
+<h3 class="text-xs font-bold uppercase tracking-widest text-secondary mb-1" style="">Vote Method</h3>
+<p class="text-2xl font-black text-on-surface" style="">Absentee</p>
+</div>
+</div>
+</section>
+<!-- Key Issues: App Store Style Chips -->
+<section class="space-y-4">
+<h2 class="text-xl font-black tracking-tight uppercase text-on-surface-variant flex items-center gap-2" style="">
+<span class="w-8 h-1 bg-primary rounded-full"></span>
+                Top Priority Issues
+            </h2>
+<div class="flex flex-wrap gap-4">
+<div class="flex items-center gap-3 bg-white p-4 rounded-xl shadow-sm border border-outline-variant/10 hover:shadow-md transition-shadow cursor-default">
+<div class="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center text-red-700">
+<span class="material-symbols-outlined" data-icon="health_and_safety" style="">health_and_safety</span>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface leading-none" style="">Healthcare</p>
+<p class="text-[10px] text-secondary font-medium uppercase tracking-tighter mt-1" style="">High Interest</p>
+</div>
+</div>
+<div class="flex items-center gap-3 bg-white p-4 rounded-xl shadow-sm border border-outline-variant/10 hover:shadow-md transition-shadow cursor-default">
+<div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-700">
+<span class="material-symbols-outlined" data-icon="paid" style="">paid</span>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface leading-none" style="">Economy</p>
+<p class="text-[10px] text-secondary font-medium uppercase tracking-tighter mt-1" style="">Key Driver</p>
+</div>
+</div>
+<div class="flex items-center gap-3 bg-white p-4 rounded-xl shadow-sm border border-outline-variant/10 hover:shadow-md transition-shadow cursor-default">
+<div class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center text-green-700">
+<span class="material-symbols-outlined" data-icon="eco" style="">eco</span>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface leading-none" style="">Climate</p>
+<p class="text-[10px] text-secondary font-medium uppercase tracking-tighter mt-1" style="">Moderate</p>
+</div>
+</div>
+<div class="flex items-center gap-3 bg-white p-4 rounded-xl shadow-sm border border-outline-variant/10 hover:shadow-md transition-shadow cursor-default">
+<div class="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700">
+<span class="material-symbols-outlined" data-icon="school" style="">school</span>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface leading-none" style="">Education</p>
+<p class="text-[10px] text-secondary font-medium uppercase tracking-tighter mt-1" style="">Supporter</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Dynamic Map Background for Location -->
+<section class="space-y-4">
+<h2 class="text-xl font-black tracking-tight uppercase text-on-surface-variant flex items-center gap-2" style="">
+<span class="w-8 h-1 bg-secondary rounded-full"></span>
+                Field Intelligence
+            </h2>
+<div class="relative w-full h-64 rounded-full overflow-hidden group border border-outline-variant/20 shadow-xl">
+<img alt="Street Map" class="w-full h-full object-cover" data-alt="abstract stylized aerial map of a residential neighborhood with clean grey roads and soft green park areas" data-location="Austin, Texas" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBKv2_Ri3CNvESDGAMMDEWHnjsabwOfgLRMaWeZcdAdKdzqAPfOSatAN_c7BzSehXeTXHrMxpPpaFUEnh6g-B4AFJ2sxQu8PofRUAeyDK6XmlYu4tdpX46z4GBw2fq_aCtIRoPuyrDYJqhsJyyZpG4HokSDwv2W_LkR3r8HidQwY1_VxOEI5hTyuWI6A6_Znn17xUzeEI35nBiqf1JHCXKohN6u2FoBbCXFFvlYf1fxDCyC8VfG9LXqkVZ_mWv9MAnHeh4ntxpT_fY" style=""/>
+<div class="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent"></div>
+<div class="absolute bottom-6 left-6 right-6 flex justify-between items-end">
+<div class="text-white">
+<p class="text-xs font-bold uppercase tracking-widest opacity-80" style="">Primary Address</p>
+<p class="text-lg font-bold" style="">1284 Oakwood Terrace</p>
+<p class="text-sm" style="">Austin, TX 78701</p>
+</div>
+<div class="bg-white/90 backdrop-blur p-4 rounded-xl shadow-lg border border-white/20">
+<p class="text-[10px] font-black uppercase text-secondary tracking-widest mb-2" style="">Canvassing Note</p>
+<p class="text-sm italic font-medium text-on-surface" style="">"Friendly, active in PTA. Prefers weekend visits."</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Transaction/Action Feed -->
+<section class="space-y-4">
+<h2 class="text-xl font-black tracking-tight uppercase text-on-surface-variant flex items-center gap-2" style="">
+<span class="w-8 h-1 bg-primary-container rounded-full"></span>
+                History
+            </h2>
+<div class="space-y-2">
+<div class="bg-surface-container-low p-5 rounded-xl flex items-center justify-between group hover:bg-surface-container-high transition-all">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-xl" data-icon="campaign" style="">campaign</span>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface" style="">Door Knock - Successful</p>
+<p class="text-xs text-secondary" style="">Oct 12 • Agent: Sarah M.</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-secondary opacity-0 group-hover:opacity-100 transition-opacity" data-icon="chevron_right" style="">chevron_right</span>
+</div>
+<div class="bg-surface-container-low p-5 rounded-xl flex items-center justify-between group hover:bg-surface-container-high transition-all">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary text-xl" data-icon="mail" style="">mail</span>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface" style="">Mail Piece Sent</p>
+<p class="text-xs text-secondary" style="">Sep 28 • Campaign: Healthcare Focus</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-secondary opacity-0 group-hover:opacity-100 transition-opacity" data-icon="chevron_right" style="">chevron_right</span>
+</div>
+</div>
+</section>
+<section class="pb-8">
+<button class="w-full bg-[#C8102E] text-white py-4 px-6 rounded-xl font-extrabold text-base shadow-lg shadow-red-900/20 flex items-center justify-center gap-3 active:scale-[0.98] transition-all min-h-[56px] uppercase tracking-wider" style="">
+<span class="material-symbols-outlined" data-icon="how_to_reg" style="">how_to_reg</span>
+    Log Ballot Request
+  </button>
+</section></main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border-t border-slate-200/10 dark:border-slate-800/10 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] flex justify-around items-center w-full px-6 pb-safe h-16">
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 pt-2 pb-1 hover:text-red-600 dark:hover:text-red-300">
+<span class="material-symbols-outlined" data-icon="map" style="">map</span>
+<span class="font-semibold text-[10px] uppercase tracking-widest Public Sans" style="">Route</span>
+</div>
+<div class="flex flex-col items-center justify-center text-red-700 dark:text-red-400 border-t-2 border-red-700 dark:border-red-500 pt-2 pb-1 opacity-80 duration-200">
+<span class="material-symbols-outlined" data-icon="group" style='font-variation-settings: "FILL" 1;'>group</span>
+<span class="font-semibold text-[10px] uppercase tracking-widest Public Sans" style="">Voters</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 pt-2 pb-1 hover:text-red-600 dark:hover:text-red-300">
+<span class="material-symbols-outlined" data-icon="assignment" style="">assignment</span>
+<span class="font-semibold text-[10px] uppercase tracking-widest Public Sans" style="">Log</span>
+</div>
+</nav>
+</body></html>

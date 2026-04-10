@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Quick Log - Project Atlas</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries">
+    const buttons = document.querySelectorAll('.outcome-btn');
+    const notesArea = document.getElementById('notes-area');
+    const charCount = document.getElementById('char-count');
+
+    // Button states mapping to match requested original unselected vs high-contrast selected
+    const states = {
+        'not-home': {
+            selected: 'bg-slate-700 text-white border-slate-800',
+            unselected: 'bg-[#E2E8F0] border-transparent text-slate-700',
+            iconSelected: 'text-white',
+            iconUnselected: 'text-slate-600'
+        },
+        'left-lit': {
+            selected: 'bg-[#3B82F6] text-white border-[#1D4ED8]',
+            unselected: 'bg-white border-[#3B82F6] text-[#3B82F6]',
+            iconSelected: 'text-white',
+            iconUnselected: 'text-[#3B82F6]'
+        },
+        'persuasion': {
+            selected: 'bg-yellow-500 text-yellow-950 border-yellow-700 border-2',
+            unselected: 'bg-[#FEF08A] border-transparent text-yellow-950',
+            iconSelected: 'text-yellow-950',
+            iconUnselected: 'text-yellow-800'
+        },
+        'ballot': {
+            selected: 'bg-[#9E001F] text-white border-[#410007] shadow-xl ring-2 ring-offset-2 ring-[#C8102E]',
+            unselected: 'bg-[#C8102E] text-white border-transparent shadow-sm',
+            iconSelected: 'text-white',
+            iconUnselected: 'text-white'
+        }
+    };
+
+    function resetButtons() {
+        buttons.forEach(btn => {
+            const outcome = btn.dataset.outcome;
+            const config = states[outcome];
+            const icon = btn.querySelector('.material-symbols-outlined');
+            const label = btn.querySelector('span:not(.material-symbols-outlined)');
+
+            // Reset classes
+            btn.classList.remove('selected-active');
+            btn.classList.remove(...config.selected.split(' '));
+            btn.classList.add(...config.unselected.split(' '));
+            
+            // Reset text and icon colors
+            if (label && outcome !== 'ballot') {
+                label.classList.remove('text-white');
+                label.classList.add(...config.unselected.split(' ').filter(c => c.startsWith('text-')));
+            }
+
+            if (icon) {
+                icon.style.fontVariationSettings = "'FILL' 0";
+                icon.classList.remove(config.iconSelected);
+                icon.classList.add(config.iconUnselected);
+            }
+        });
+    }
+
+    buttons.forEach(button => {
+        button.addEventListener('click', () => {
+            const isAlreadySelected = button.classList.contains('selected-active');
+            
+            resetButtons();
+
+            if (!isAlreadySelected) {
+                const outcome = button.dataset.outcome;
+                const config = states[outcome];
+                const icon = button.querySelector('.material-symbols-outlined');
+                const label = button.querySelector('span:not(.material-symbols-outlined)');
+
+                button.classList.add('selected-active');
+                button.classList.remove(...config.unselected.split(' '));
+                button.classList.add(...config.selected.split(' '));
+
+                if (icon) {
+                    icon.style.fontVariationSettings = "'FILL' 1";
+                    icon.classList.remove(config.iconUnselected);
+                    icon.classList.add(config.iconSelected);
+                }
+                if (label) {
+                    label.classList.add('text-white');
+                    // Keep persuasion text dark even when selected if it looks better, but user asked for high contrast solid fill
+                    if (outcome === 'persuasion') label.classList.add('text-yellow-950');
+                }
+            }
+        });
+    });
+
+    notesArea.addEventListener('input', () => {
+        const length = notesArea.value.length;
+        charCount.textContent = `${length} / 150`;
+        if (length >= 150) {
+            charCount.classList.add('text-error');
+        } else {
+            charCount.classList.remove('text-error');
+        }
+    });
+
+    // Initialize
+    resetButtons();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;700;800;900&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-fixed": "#dae2ff",
+                    "outline": "#906f6e",
+                    "inverse-primary": "#ffb3b1",
+                    "error": "#ba1a1a",
+                    "surface-tint": "#bf0229",
+                    "tertiary": "#005468",
+                    "surface-container-low": "#f3f4f5",
+                    "secondary": "#4e5d86",
+                    "primary-fixed": "#ffdad8",
+                    "on-secondary-fixed": "#081a3e",
+                    "on-primary": "#ffffff",
+                    "tertiary-container": "#006e87",
+                    "surface-bright": "#f8f9fa",
+                    "inverse-on-surface": "#f0f1f2",
+                    "primary": "#9e001f",
+                    "on-secondary-fixed-variant": "#37466c",
+                    "on-background": "#191c1d",
+                    "surface-container-highest": "#e1e3e4",
+                    "surface": "#f8f9fa",
+                    "error-container": "#ffdad6",
+                    "on-error-container": "#93000a",
+                    "outline-variant": "#e5bdbb",
+                    "tertiary-fixed": "#b6ebff",
+                    "on-tertiary-container": "#b6ebff",
+                    "background": "#f8f9fa",
+                    "on-surface": "#191c1d",
+                    "surface-container": "#edeeef",
+                    "on-tertiary": "#ffffff",
+                    "on-primary-fixed-variant": "#92001c",
+                    "on-primary-container": "#ffdad8",
+                    "on-primary-fixed": "#410007",
+                    "secondary-fixed-dim": "#b6c6f4",
+                    "surface-variant": "#e1e3e4",
+                    "tertiary-fixed-dim": "#82d1ed",
+                    "surface-dim": "#d9dadb",
+                    "secondary-container": "#c1d1ff",
+                    "on-tertiary-fixed": "#001f28",
+                    "inverse-surface": "#2e3132",
+                    "on-tertiary-fixed-variant": "#004e60",
+                    "primary-fixed-dim": "#ffb3b1",
+                    "primary-container": "#c8102e",
+                    "on-secondary-container": "#4a5981",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary": "#ffffff",
+                    "on-error": "#ffffff",
+                    "on-surface-variant": "#5c403f"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Public Sans"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .modal-blur {
+            backdrop-filter: blur(8px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-surface-dim font-body text-on-surface antialiased min-h-screen flex items-center justify-center overflow-hidden">
+<!-- Background Map Layer (Visual Context) -->
+<div class="fixed inset-0 z-0">
+<img alt="Tactical Map Background" class="w-full h-full object-cover opacity-40 grayscale" data-alt="Monochrome satellite view of a suburban neighborhood grid with high contrast streets and house footprints" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCj72fGEHSMRbSaxYqBqTtcB2t9C_JvDeH89V1xp_S8LdxLHAAEyoAor3rA14hAHSg99xqmEFqS2H0C_ldWA5cppRTARukPDwQQ9GGJ_fFJkFLJF1YB5YNQxJnAXjD_MKomRuTFdrNToiy0Pb324OXclfMu2o00lYKR_hBy_iFvxguccQ8QPSi0o7ugDFcTEMRZG6xknFKNCCAeDRMIke9RhXs_uYv2l3g1lAgchn-apF-t_85ig5mvegbSL5jQaQ4UhrqWYtvOBE0"/>
+</div>
+<!-- Modal Overlay -->
+<div class="fixed inset-0 z-10 bg-on-background/60 modal-blur flex items-end md:items-center justify-center p-0 md:p-6">
+<!-- Modal Container -->
+<div class="w-full max-w-md bg-surface shadow-2xl rounded-t-xl md:rounded-xl overflow-hidden border border-outline-variant/20 flex flex-col max-h-[795px]">
+<!-- TopAppBar Command Header -->
+<header class="flex items-center justify-between px-6 h-16 w-full bg-surface-container-lowest">
+<h1 class="font-headline font-black uppercase tracking-wider text-lg text-primary">Log Contact</h1>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container-low transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">close</span>
+</button>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+<!-- Voter Intel Card -->
+<section class="bg-surface-container-low p-5 rounded-lg border-l-4 border-primary shadow-sm">
+<div class="flex items-start justify-between">
+<div>
+<p class="font-label text-[10px] font-bold uppercase tracking-widest text-secondary mb-1">Voter Identification</p>
+<h2 class="text-xl font-headline font-extrabold text-on-surface">Jameson Sterling</h2>
+<p class="text-sm text-on-surface-variant font-medium flex items-center mt-1">
+<span class="material-symbols-outlined text-[18px] mr-1">location_on</span>
+                                1284 Oakwood Terrace
+                            </p>
+</div>
+<div class="h-10 w-10 bg-surface-container-highest rounded-md flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary">person</span>
+</div>
+</div>
+</section>
+<!-- Outcome Grid (Asymmetric Tactical Selection) -->
+<section id="outcome-grid">
+<h3 class="font-label text-[10px] font-bold uppercase tracking-widest text-secondary mb-3">Field Action Outcome</h3>
+<div class="grid grid-cols-2 gap-3">
+<!-- Top-Left: NOT HOME -->
+<button class="outcome-btn flex flex-col items-center justify-center aspect-[4/3] bg-[#E2E8F0] rounded-lg border border-transparent transition-all p-3 text-center" data-outcome="not-home">
+<span class="material-symbols-outlined mb-2 text-slate-600">no_accounts</span>
+<span class="font-headline text-[11px] font-bold uppercase tracking-tight text-slate-700 leading-tight">NOT HOME</span>
+</button>
+<!-- Top-Right: LEFT LITERATURE -->
+<button class="outcome-btn flex flex-col items-center justify-center aspect-[4/3] bg-white border-2 border-[#3B82F6] rounded-lg transition-all p-3 text-center" data-outcome="left-lit">
+<span class="material-symbols-outlined mb-2 text-[#3B82F6]">description</span>
+<span class="font-headline text-[11px] font-bold uppercase tracking-tight text-[#3B82F6] leading-tight">LEFT LITERATURE</span>
+</button>
+<!-- Bottom-Left: PERSUASION CONVO -->
+<button class="outcome-btn flex flex-col items-center justify-center aspect-[4/3] bg-[#FEF08A] rounded-lg border border-transparent transition-all p-3 text-center" data-outcome="persuasion">
+<span class="material-symbols-outlined mb-2 text-yellow-800">campaign</span>
+<span class="font-headline text-[11px] font-bold uppercase tracking-tight text-yellow-950 leading-tight">PERSUASION CONVO</span>
+</button>
+<!-- Bottom-Right: BALLOT SECURED -->
+<button class="outcome-btn flex flex-col items-center justify-center aspect-[4/3] bg-[#C8102E] text-white rounded-lg transition-all p-3 text-center shadow-sm" data-outcome="ballot">
+<span class="material-symbols-outlined mb-2">check_circle</span>
+<span class="font-headline text-[11px] font-bold uppercase tracking-tight leading-tight">BALLOT SECURED</span>
+</button>
+</div>
+</section>
+<!-- Notes Section -->
+<section class="space-y-2">
+<label class="font-label text-[10px] font-bold uppercase tracking-widest text-secondary">Command Notes (Optional)</label>
+<div class="relative">
+<textarea class="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg p-4 text-sm focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-on-surface-variant/40 resize-none" id="notes-area" maxlength="150" placeholder="Add notes..." rows="3"></textarea>
+<div class="absolute bottom-3 right-3 text-[10px] font-bold text-on-surface-variant/60 font-label" id="char-count">
+                            0 / 150
+                        </div>
+</div>
+</section>
+</div>
+<!-- Footer: Global Action -->
+<footer class="p-6 bg-surface-container-lowest flex items-center justify-center">
+<button class="w-full py-4 px-6 bg-[#1A2A4F] text-white rounded-lg font-headline font-bold uppercase tracking-[0.15em] flex items-center justify-center gap-2 hover:brightness-125 transition-all active:scale-[0.98] shadow-lg">
+<span>SUBMIT &amp; NEXT</span>
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</footer>
+</div>
+</div>
+<!-- Bottom Navigation Shell (Contextual Background) -->
+<nav class="fixed bottom-0 left-0 w-full z-0 flex justify-around items-center h-16 px-6 pb-safe bg-white/80 border-t border-slate-200/10 pointer-events-none opacity-20">
+<div class="flex flex-col items-center justify-center text-red-700 border-t-2 border-red-700 pt-1">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-tighter">Voters</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 pt-1">
+<span class="material-symbols-outlined">explore</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-tighter">Map</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 pt-1">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-tighter">Stats</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-500 pt-1">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-tighter">Settings</span>
+</div>
+</nav>
+<script>
+    const buttons = document.querySelectorAll('.outcome-btn');
+    const notesArea = document.getElementById('notes-area');
+    const charCount = document.getElementById('char-count');
+
+    // Button states mapping to match requested original unselected vs high-contrast selected
+    const states = {
+        'not-home': {
+            selected: 'bg-slate-700 text-white border-slate-800',
+            unselected: 'bg-[#E2E8F0] border-transparent text-slate-700',
+            iconSelected: 'text-white',
+            iconUnselected: 'text-slate-600'
+        },
+        'left-lit': {
+            selected: 'bg-[#3B82F6] text-white border-[#1D4ED8]',
+            unselected: 'bg-white border-[#3B82F6] text-[#3B82F6]',
+            iconSelected: 'text-white',
+            iconUnselected: 'text-[#3B82F6]'
+        },
+        'persuasion': {
+            selected: 'bg-yellow-500 text-yellow-950 border-yellow-700 border-2',
+            unselected: 'bg-[#FEF08A] border-transparent text-yellow-950',
+            iconSelected: 'text-yellow-950',
+            iconUnselected: 'text-yellow-800'
+        },
+        'ballot': {
+            selected: 'bg-[#9E001F] text-white border-[#410007] shadow-xl ring-2 ring-offset-2 ring-[#C8102E]',
+            unselected: 'bg-[#C8102E] text-white border-transparent shadow-sm',
+            iconSelected: 'text-white',
+            iconUnselected: 'text-white'
+        }
+    };
+
+    function resetButtons() {
+        buttons.forEach(btn => {
+            const outcome = btn.dataset.outcome;
+            const config = states[outcome];
+            const icon = btn.querySelector('.material-symbols-outlined');
+            const label = btn.querySelector('span:not(.material-symbols-outlined)');
+
+            // Reset classes
+            btn.classList.remove('selected-active');
+            btn.classList.remove(...config.selected.split(' '));
+            btn.classList.add(...config.unselected.split(' '));
+            
+            // Reset text and icon colors
+            if (label && outcome !== 'ballot') {
+                label.classList.remove('text-white');
+                label.classList.add(...config.unselected.split(' ').filter(c => c.startsWith('text-')));
+            }
+
+            if (icon) {
+                icon.style.fontVariationSettings = "'FILL' 0";
+                icon.classList.remove(config.iconSelected);
+                icon.classList.add(config.iconUnselected);
+            }
+        });
+    }
+
+    buttons.forEach(button => {
+        button.addEventListener('click', () => {
+            const isAlreadySelected = button.classList.contains('selected-active');
+            
+            resetButtons();
+
+            if (!isAlreadySelected) {
+                const outcome = button.dataset.outcome;
+                const config = states[outcome];
+                const icon = button.querySelector('.material-symbols-outlined');
+                const label = button.querySelector('span:not(.material-symbols-outlined)');
+
+                button.classList.add('selected-active');
+                button.classList.remove(...config.unselected.split(' '));
+                button.classList.add(...config.selected.split(' '));
+
+                if (icon) {
+                    icon.style.fontVariationSettings = "'FILL' 1";
+                    icon.classList.remove(config.iconUnselected);
+                    icon.classList.add(config.iconSelected);
+                }
+                if (label) {
+                    label.classList.add('text-white');
+                    // Keep persuasion text dark even when selected if it looks better, but user asked for high contrast solid fill
+                    if (outcome === 'persuasion') label.classList.add('text-yellow-950');
+                }
+            }
+        });
+    });
+
+    notesArea.addEventListener('input', () => {
+        const length = notesArea.value.length;
+        charCount.textContent = `${length} / 150`;
+        if (length >= 150) {
+            charCount.classList.add('text-error');
+        } else {
+            charCount.classList.remove('text-error');
+        }
+    });
+
+    // Initialize
+    resetButtons();
+</script>
+</body></html>
