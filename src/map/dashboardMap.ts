@@ -60,10 +60,8 @@ const ROUTE_PROVIDERS = [
   { kind: 'valhalla-osrm', endpoint: 'https://valhalla1.openstreetmap.de/route' },
 ] as const
 
-function pinDistSq(a: DelawareHousePin, b: DelawareHousePin): number {
-  const dLat = a.lat - b.lat
-  const dLng = a.lng - b.lng
-  return dLat * dLat + dLng * dLng
+function pinDistanceMeters(a: DelawareHousePin, b: DelawareHousePin): number {
+  return L.latLng(a.lat, a.lng).distanceTo(L.latLng(b.lat, b.lng))
 }
 
 /** Greedy nearest-neighbor tour — reasonable heuristic for short canvass loops. */
@@ -75,7 +73,7 @@ function orderPinsNearestNeighbor(pins: DelawareHousePin[], start: DelawareHouse
     let bestI = 0
     let bestD = Infinity
     for (let i = 0; i < remaining.length; i++) {
-      const d = pinDistSq(current, remaining[i])
+      const d = pinDistanceMeters(current, remaining[i])
       if (d < bestD) {
         bestD = d
         bestI = i
@@ -85,6 +83,66 @@ function orderPinsNearestNeighbor(pins: DelawareHousePin[], start: DelawareHouse
     ordered.push(current)
   }
   return ordered
+}
+
+/** Total length for an ordered open tour (no return leg to the first stop). */
+function orderedPinsLengthMeters(ordered: DelawareHousePin[]): number {
+  let meters = 0
+  for (let i = 0; i < ordered.length - 1; i++) {
+    meters += pinDistanceMeters(ordered[i]!, ordered[i + 1]!)
+  }
+  return meters
+}
+
+function reversePinsSegment(route: DelawareHousePin[], start: number, end: number): void {
+  let i = start
+  let j = end
+  while (i < j) {
+    const tmp = route[i]!
+    route[i] = route[j]!
+    route[j] = tmp
+    i++
+    j--
+  }
+}
+
+/**
+ * 2-opt refinement for open tours.
+ * Keeps the first stop fixed (selected start pin), and flips route segments when it shortens total length.
+ */
+function improveRouteOrder2Opt(ordered: DelawareHousePin[]): DelawareHousePin[] {
+  if (ordered.length < 4) return ordered
+  const route = [...ordered]
+  const maxPasses = Math.min(20, route.length)
+  let improved = true
+  let pass = 0
+
+  while (improved && pass < maxPasses) {
+    improved = false
+    pass++
+    for (let i = 1; i < route.length - 2; i++) {
+      for (let k = i + 1; k < route.length - 1; k++) {
+        const a = route[i - 1]!
+        const b = route[i]!
+        const c = route[k]!
+        const d = route[k + 1]!
+        const current = pinDistanceMeters(a, b) + pinDistanceMeters(c, d)
+        const swapped = pinDistanceMeters(a, c) + pinDistanceMeters(b, d)
+        if (swapped + 0.5 < current) {
+          reversePinsSegment(route, i, k)
+          improved = true
+        }
+      }
+    }
+  }
+  return route
+}
+
+/** Route ordering heuristic: nearest-neighbor seed + 2-opt refinement. */
+function orderPinsForCanvassRoute(pins: DelawareHousePin[], start: DelawareHousePin): DelawareHousePin[] {
+  const seed = orderPinsNearestNeighbor(pins, start)
+  const improved = improveRouteOrder2Opt(seed)
+  return orderedPinsLengthMeters(improved) < orderedPinsLengthMeters(seed) ? improved : seed
 }
 
 /** Meters along a polyline (haversine / geodesic per Leaflet segment). */
@@ -119,9 +177,25 @@ export function setDashboardCanvassRoutePrepare(fn: DashboardCanvassRoutePrepare
   canvassRoutePrepare = fn
 }
 
+/** Dashboard collapses priority chrome when a *new* route run has enough stops (not route recalcs). */
+let canvassRouteNewTourUi: (() => void) | null = null
+
+export function setDashboardCanvassRouteNewTourUi(fn: (() => void) | null): void {
+  canvassRouteNewTourUi = fn
+}
+
 /** Wired from the dashboard so the status bar can show route duration; cleared on unmount. */
 export function setDashboardRouteEstimateListener(fn: DashboardRouteEstimateListener | null): void {
   routeEstimateListener = fn
+}
+
+/** Fires after a driving route is drawn successfully (ordered door stops, voter ids). Cleared on unmount. */
+export type DashboardCanvassRouteTourListener = (orderedVoterIds: string[]) => void
+
+let canvassRouteTourListener: DashboardCanvassRouteTourListener | null = null
+
+export function setDashboardCanvassRouteTourListener(fn: DashboardCanvassRouteTourListener | null): void {
+  canvassRouteTourListener = fn
 }
 
 function notifyRouteEstimate(totalSeconds: number | null): void {
@@ -178,6 +252,36 @@ async function fetchOsrmDrivingRoute(
     }
   }
   return null
+}
+
+/**
+ * For tours longer than a single provider request limit, request overlapping routed chunks and stitch
+ * them into one road-following path.
+ */
+async function fetchOsrmDrivingRouteSegmented(
+  latlngs: L.LatLngTuple[],
+): Promise<{ path: L.LatLngTuple[]; durationSeconds: number } | null> {
+  if (latlngs.length < 2) return null
+  if (latlngs.length <= OSRM_MAX_WAYPOINTS) return fetchOsrmDrivingRoute(latlngs)
+
+  const stitchedPath: L.LatLngTuple[] = []
+  let totalDurationSeconds = 0
+  let start = 0
+  while (start < latlngs.length - 1) {
+    const end = Math.min(latlngs.length - 1, start + (OSRM_MAX_WAYPOINTS - 1))
+    const chunk = latlngs.slice(start, end + 1)
+    const routedChunk = await fetchOsrmDrivingRoute(chunk)
+    if (!routedChunk) return null
+    totalDurationSeconds += routedChunk.durationSeconds
+    if (stitchedPath.length === 0) {
+      stitchedPath.push(...routedChunk.path)
+    } else {
+      stitchedPath.push(...routedChunk.path.slice(1))
+    }
+    start = end
+  }
+  if (stitchedPath.length < 2) return null
+  return { path: stitchedPath, durationSeconds: totalDurationSeconds }
 }
 
 function interpolateAlongPolyline(path: L.LatLngTuple[], t: number): L.LatLng {
@@ -559,7 +663,7 @@ function getCanvassRoutePinsEligible(startDistrictIndex: number | undefined): De
   return getCanvassRoutePinsRaw(startDistrictIndex).filter((p) => !routeExcludedVoterIds.has(p.voterId))
 }
 
-/** Driving directions (OSRM) when ≤26 stops; otherwise straight segments. Animated polyline + pulse. */
+/** Driving directions (OSRM/Valhalla), chunked for long tours. Animated polyline + pulse. */
 export async function runDashboardCanvassRoute(
   startVoterId?: string,
   startDistrictIndex?: number,
@@ -581,9 +685,11 @@ export async function runDashboardCanvassRoute(
   const pins = getCanvassRoutePinsEligible(startDistrictIndex)
   if (pins.length < 2) return
 
+  if (resetExcludedPins) canvassRouteNewTourUi?.()
+
   const startPin =
     (startVoterId ? pins.find((p) => p.voterId === startVoterId) : undefined) ?? pins[0]
-  const ordered = orderPinsNearestNeighbor(pins, startPin)
+  const ordered = orderPinsForCanvassRoute(pins, startPin)
   const waypoints: L.LatLngTuple[] = ordered.map((p) => [p.lat, p.lng])
 
   if (map.getZoom() <= DISTRICT_GROUPING_MAX_ZOOM) {
@@ -603,48 +709,21 @@ export async function runDashboardCanvassRoute(
     pane: ATLAS_ROUTE_PANE,
   }
 
-  if (waypoints.length <= OSRM_MAX_WAYPOINTS) {
-    showDashboardRouteLoading(map)
+  showDashboardRouteLoading(map)
+  try {
     try {
-      try {
-        const bounds = L.latLngBounds(waypoints)
-        map.fitBounds(bounds, { padding: [52, 52], maxZoom: 17, animate: true })
-      } catch {
-        /* ignore empty bounds */
-      }
-      map.invalidateSize()
-
-      const osrm = await fetchOsrmDrivingRoute(waypoints)
-      if (myToken !== routeAnimToken) return
-
-      const pathLatLngs: L.LatLngTuple[] = osrm?.path ?? waypoints
-      const durationSeconds = osrm?.durationSeconds ?? estimateDriveSecondsFromPath(pathLatLngs)
-      const line = L.polyline(pathLatLngs, polylineOptions)
-      line.addTo(routeLayerGroup)
-      line.bringToFront()
-      addRouteStartMarker(pathLatLngs)
-
-      try {
-        map.fitBounds(line.getBounds(), { padding: [52, 52], maxZoom: 17, animate: true })
-      } catch {
-        /* ignore empty bounds */
-      }
-      map.invalidateSize()
-      animatePulseAlongRoute(pathLatLngs, ROUTE_PULSE_MS, myToken)
-      if (myToken === routeAnimToken) {
-        notifyRouteEstimate(durationSeconds)
-        lastCanvassRouteRecalc = {
-          startVoterId: ordered[0]!.voterId,
-          startDistrictIndex: hasDistrictHint ? startDistrictIndex : undefined,
-        }
-        canvassRoutePolylineActive = true
-      }
-    } finally {
-      if (myToken === routeAnimToken) hideDashboardRouteLoading()
+      const bounds = L.latLngBounds(waypoints)
+      map.fitBounds(bounds, { padding: [52, 52], maxZoom: 17, animate: true })
+    } catch {
+      /* ignore empty bounds */
     }
-  } else {
-    const pathLatLngs: L.LatLngTuple[] = waypoints
-    const durationSeconds = estimateDriveSecondsFromPath(pathLatLngs)
+    map.invalidateSize()
+
+    const routed = await fetchOsrmDrivingRouteSegmented(waypoints)
+    if (myToken !== routeAnimToken) return
+
+    const pathLatLngs: L.LatLngTuple[] = routed?.path ?? waypoints
+    const durationSeconds = routed?.durationSeconds ?? estimateDriveSecondsFromPath(pathLatLngs)
     const line = L.polyline(pathLatLngs, polylineOptions)
     line.addTo(routeLayerGroup)
     line.bringToFront()
@@ -655,7 +734,6 @@ export async function runDashboardCanvassRoute(
     } catch {
       /* ignore empty bounds */
     }
-
     map.invalidateSize()
     animatePulseAlongRoute(pathLatLngs, ROUTE_PULSE_MS, myToken)
     if (myToken === routeAnimToken) {
@@ -665,7 +743,22 @@ export async function runDashboardCanvassRoute(
         startDistrictIndex: hasDistrictHint ? startDistrictIndex : undefined,
       }
       canvassRoutePolylineActive = true
+      if (resetExcludedPins) {
+        const orderedVoterIds: string[] = []
+        const seen = new Set<string>()
+        for (const pin of ordered) {
+          if (!seen.has(pin.voterId)) {
+            seen.add(pin.voterId)
+            orderedVoterIds.push(pin.voterId)
+          }
+        }
+        canvassRouteTourListener?.(orderedVoterIds)
+      }
     }
+  } catch {
+    /* network, Leaflet, or race with unmount */
+  } finally {
+    if (myToken === routeAnimToken) hideDashboardRouteLoading()
   }
 }
 

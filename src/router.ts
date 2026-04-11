@@ -1,4 +1,4 @@
-export type NavKey = 'route' | 'voters' | 'log' | 'intel'
+export type NavKey = 'route' | 'voters' | 'log' | 'intel' | 'account'
 
 export interface RouteState {
   path: string
@@ -12,6 +12,8 @@ function navFromPath(path: string): NavKey {
   if (path.startsWith('/log')) return 'log'
   if (path.startsWith('/voters')) return 'voters'
   if (path.startsWith('/intel')) return 'intel'
+  if (path === '/account') return 'account'
+  if (path.startsWith('/canvass')) return 'route'
   return 'route'
 }
 

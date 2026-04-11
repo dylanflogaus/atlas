@@ -11,7 +11,7 @@ interface ScriptPack {
   avoid: string
 }
 
-const SCRIPTS: Record<'supporter' | 'undecided' | 'opposed', ScriptPack> = {
+export const INTEL_SCRIPT_PACKS: Record<'supporter' | 'undecided' | 'opposed', ScriptPack> = {
   supporter: {
     headline: 'Confirm + mobilize',
     opener: 'Thanks for supporting [Candidate]. We’re making sure neighbors have a plan to vote.',
@@ -35,7 +35,7 @@ const SCRIPTS: Record<'supporter' | 'undecided' | 'opposed', ScriptPack> = {
   },
 }
 
-const DEADLINES: { id: string; title: string; date: string; detail: string }[] = [
+export const INTEL_ROUTE_DEADLINES: { id: string; title: string; date: string; detail: string }[] = [
   {
     id: 'reg',
     title: 'Voter registration cutoff',
@@ -79,8 +79,8 @@ function partyShort(party: Voter['party']): string {
   return party
 }
 
-function renderScriptPanel(mode: keyof typeof SCRIPTS): string {
-  const s = SCRIPTS[mode]
+function renderScriptPanel(mode: keyof typeof INTEL_SCRIPT_PACKS): string {
+  const s = INTEL_SCRIPT_PACKS[mode]
   return `
     <div class="intel-section-card mt-3 space-y-0 overflow-hidden rounded-xl bg-surface-container-low ring-1 ring-outline-variant/15">
       <div class="border-b border-outline-variant/10 bg-surface-container-high/40 px-4 py-3">
@@ -215,7 +215,7 @@ export function renderIntel(): string {
     )
     .join('')
 
-  const deadlinesHtml = DEADLINES.map(
+  const deadlinesHtml = INTEL_ROUTE_DEADLINES.map(
     (d) => `
     <details class="group intel-section-card overflow-hidden rounded-xl border border-outline-variant/12 bg-surface-container-lowest shadow-sm open:border-primary/25 open:ring-1 open:ring-primary/15">
       <summary class="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 font-headline text-sm font-bold text-on-surface marker:hidden hover:bg-surface-container-low/80">
@@ -399,7 +399,7 @@ function syncTabUI(root: HTMLElement, tab: string): void {
   })
 }
 
-function syncDispositionUI(root: HTMLElement, mode: keyof typeof SCRIPTS): void {
+function syncDispositionUI(root: HTMLElement, mode: keyof typeof INTEL_SCRIPT_PACKS): void {
   root.querySelectorAll<HTMLButtonElement>('[data-disposition]').forEach((btn) => {
     const on = btn.dataset.disposition === mode
     btn.classList.toggle('bg-primary', on)
@@ -420,10 +420,10 @@ function syncDispositionUI(root: HTMLElement, mode: keyof typeof SCRIPTS): void 
 }
 
 function bindCopyButton(btn: HTMLButtonElement): void {
-  const mode = btn.dataset.copyScript as keyof typeof SCRIPTS | undefined
-  if (!mode || !SCRIPTS[mode]) return
+  const mode = btn.dataset.copyScript as keyof typeof INTEL_SCRIPT_PACKS | undefined
+  if (!mode || !INTEL_SCRIPT_PACKS[mode]) return
   btn.addEventListener('click', async () => {
-    const s = SCRIPTS[mode]
+    const s = INTEL_SCRIPT_PACKS[mode]
     const text = `${s.headline}\n\nOpener: ${s.opener}\nAsk: ${s.ask}\nClose: ${s.closer}\nAvoid: ${s.avoid}`
     try {
       await navigator.clipboard.writeText(text)
@@ -439,6 +439,11 @@ function bindCopyButton(btn: HTMLButtonElement): void {
   })
 }
 
+/** Checklist completion for route briefing (same storage as Field brief page). */
+export function readIntelChecklistState(): Set<string> {
+  return readChecklist()
+}
+
 export function bindIntel(root: HTMLElement): void {
   syncTabUI(root, 'mission')
 
@@ -449,13 +454,13 @@ export function bindIntel(root: HTMLElement): void {
     })
   })
 
-  let disposition: keyof typeof SCRIPTS = 'supporter'
+  let disposition: keyof typeof INTEL_SCRIPT_PACKS = 'supporter'
   syncDispositionUI(root, disposition)
 
   root.querySelectorAll<HTMLButtonElement>('[data-disposition]').forEach((button) => {
     button.addEventListener('click', () => {
-      const d = button.dataset.disposition as keyof typeof SCRIPTS | undefined
-      if (d && SCRIPTS[d]) {
+      const d = button.dataset.disposition as keyof typeof INTEL_SCRIPT_PACKS | undefined
+      if (d && INTEL_SCRIPT_PACKS[d]) {
         disposition = d
         syncDispositionUI(root, disposition)
       }

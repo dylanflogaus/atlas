@@ -1,42 +1,16 @@
-import type { BallotChaser, BallotChaserAchievement } from '../data'
+import type { BallotChaser } from '../data'
 import { ballotChasers } from '../data'
+import { bindAchievementSectionToggles, renderChaserAchievementsBlock } from './chaserAchievementsSection'
 
 function pct(cur: number, goal: number): number {
   if (goal <= 0) return 0
   return Math.min(100, Math.round((cur / goal) * 100))
 }
 
-function tierRing(a: BallotChaserAchievement): string {
-  if (!a.unlocked) return 'ring-1 ring-outline-variant/40 bg-surface-container-highest/80 opacity-55'
-  if (a.tier === 'gold') return 'ring-2 ring-amber-400/70 bg-gradient-to-br from-amber-500/20 to-amber-700/10 shadow-md shadow-amber-900/10'
-  if (a.tier === 'silver') return 'ring-2 ring-slate-300/80 bg-gradient-to-br from-slate-200/30 to-slate-400/15'
-  if (a.tier === 'bronze') return 'ring-2 ring-orange-300/70 bg-gradient-to-br from-orange-400/15 to-amber-800/10'
-  return 'ring-2 ring-primary/35 bg-primary/10'
-}
-
-function achievementChip(a: BallotChaserAchievement): string {
-  const base = tierRing(a)
-  const iconTone = a.unlocked ? 'text-on-surface' : 'text-on-surface-variant'
-  return `
-    <div class="group flex items-center gap-2.5 rounded-xl px-3 py-2.5 ${base} transition-transform hover:scale-[1.02]" title="${a.description}">
-      <span class="material-symbols-outlined text-[22px] shrink-0 ${iconTone} ${a.unlocked ? 'fill' : ''}">${a.icon}</span>
-      <div class="min-w-0 text-left">
-        <p class="font-headline text-[11px] font-bold uppercase tracking-tight text-on-surface leading-tight">${a.title}</p>
-        <p class="text-[9px] font-medium text-on-surface-variant truncate">${a.unlocked ? a.description : 'Locked'}</p>
-      </div>
-      ${
-        !a.unlocked
-          ? '<span class="material-symbols-outlined text-base text-on-surface-variant/50 shrink-0">lock</span>'
-          : ''
-      }
-    </div>`
-}
-
 function chaserCard(c: BallotChaser): string {
   const defaultVisibleActions = 3
   const doorPct = pct(c.doorsKnocked, c.doorsGoal)
   const ballotPct = pct(c.ballotsSecured, c.ballotGoal)
-  const achievementsHtml = c.achievements.map(achievementChip).join('')
   const hasHiddenActions = c.recentActions.length > defaultVisibleActions
   const timelineHtml = c.recentActions
     .map(
@@ -94,13 +68,7 @@ function chaserCard(c: BallotChaser): string {
         </div>
       </div>
 
-      <div class="relative mt-6">
-        <h3 class="font-headline text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant mb-3 flex items-center gap-2">
-          <span class="material-symbols-outlined text-secondary text-[18px] fill">emoji_events</span>
-          Achievements
-        </h3>
-        <div class="flex flex-col gap-2">${achievementsHtml}</div>
-      </div>
+      ${renderChaserAchievementsBlock(c.achievements)}
 
       <div class="relative mt-6 pt-5 border-t border-outline-variant/20">
         <h3 class="font-headline text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant mb-4 flex items-center gap-2">
@@ -207,18 +175,20 @@ export function renderChaserProgress(): string {
 
 export function bindChaserProgress(root: HTMLElement): void {
   const toggleBtn = root.querySelector<HTMLButtonElement>('[data-action="toggle-actions"]')
-  if (!toggleBtn) return
+  if (toggleBtn) {
+    const hiddenActions = root.querySelectorAll<HTMLLIElement>('li[data-action-item="hidden"]')
+    const label = toggleBtn.querySelector<HTMLElement>('[data-role="toggle-actions-label"]')
+    const icon = toggleBtn.querySelector<HTMLElement>('[data-role="toggle-actions-icon"]')
+    let expanded = false
 
-  const hiddenActions = root.querySelectorAll<HTMLLIElement>('li[data-action-item="hidden"]')
-  const label = toggleBtn.querySelector<HTMLElement>('[data-role="toggle-actions-label"]')
-  const icon = toggleBtn.querySelector<HTMLElement>('[data-role="toggle-actions-icon"]')
-  let expanded = false
+    toggleBtn.addEventListener('click', () => {
+      expanded = !expanded
+      hiddenActions.forEach((item) => item.classList.toggle('hidden', !expanded))
+      toggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false')
+      if (label) label.textContent = expanded ? 'Less' : 'More'
+      if (icon) icon.textContent = expanded ? 'expand_less' : 'expand_more'
+    })
+  }
 
-  toggleBtn.addEventListener('click', () => {
-    expanded = !expanded
-    hiddenActions.forEach((item) => item.classList.toggle('hidden', !expanded))
-    toggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false')
-    if (label) label.textContent = expanded ? 'Less' : 'More'
-    if (icon) icon.textContent = expanded ? 'expand_less' : 'expand_more'
-  })
+  bindAchievementSectionToggles(root)
 }

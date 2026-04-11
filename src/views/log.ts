@@ -88,6 +88,47 @@ function resetOutcomes(root: HTMLElement, except: HTMLButtonElement | null): voi
   })
 }
 
+function renderOutcomeGridAndNotes(notesFieldId: string, charCountId: string): string {
+  return `
+          <section>
+            <h3 class="font-label text-[10px] font-bold uppercase tracking-widest text-secondary mb-3">Field Action Outcome</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <button type="button" class="${BTN_BASE}" data-outcome="not-home">
+                <span class="material-symbols-outlined icon-span mb-2">no_accounts</span>
+                <span class="font-headline text-[11px] font-bold uppercase tracking-tight leading-tight label-span">Not Home</span>
+              </button>
+              <button type="button" class="${BTN_BASE}" data-outcome="left-lit">
+                <span class="material-symbols-outlined icon-span mb-2">description</span>
+                <span class="font-headline text-[11px] font-bold uppercase tracking-tight leading-tight label-span">Left Literature</span>
+              </button>
+              <button type="button" class="${BTN_BASE}" data-outcome="persuasion">
+                <span class="material-symbols-outlined icon-span mb-2">campaign</span>
+                <span class="font-headline text-[11px] font-bold uppercase tracking-tight leading-tight label-span">Persuasion Convo</span>
+              </button>
+              <button type="button" class="${BTN_BASE}" data-outcome="ballot">
+                <span class="material-symbols-outlined icon-span mb-2 fill">check_circle</span>
+                <span class="font-headline text-[11px] font-bold uppercase tracking-tight leading-tight label-span">Ballot Secured</span>
+              </button>
+            </div>
+          </section>
+          <section class="space-y-2">
+            <label class="font-label text-[10px] font-bold uppercase tracking-widest text-secondary" for="${notesFieldId}">Command Notes (Optional)</label>
+            <div class="relative">
+              <textarea class="w-full bg-surface-container-lowest rounded-lg p-4 text-sm text-on-surface placeholder:text-on-surface-variant/40 resize-none ring-1 ring-outline-variant/35 focus:ring-2 focus:ring-primary focus:outline-none" id="${notesFieldId}" maxlength="150" placeholder="Add notes..." rows="3"></textarea>
+              <div class="absolute bottom-3 right-3 text-[10px] font-bold text-on-surface-variant/60 font-label" id="${charCountId}">0 / 150</div>
+            </div>
+          </section>`
+}
+
+/** Scrollable log contact block for canvass walk (no modal wrapper). */
+export function renderInlineLogContact(): string {
+  return `
+    <section data-inline-log class="rounded-2xl border border-outline-variant/12 bg-surface-container-lowest p-4 ring-1 ring-outline-variant/15 space-y-6">
+      <h3 class="font-headline text-sm font-black uppercase tracking-wider text-primary">Log contact</h3>
+      ${renderOutcomeGridAndNotes('canvass-walk-notes', 'canvass-walk-char-count')}
+    </section>`
+}
+
 /** Inner panel markup (card only). */
 export function renderLog(v: Voter): string {
   return `
@@ -124,34 +165,7 @@ export function renderLog(v: Voter): string {
               </div>
             </div>
           </section>
-          <section>
-            <h3 class="font-label text-[10px] font-bold uppercase tracking-widest text-secondary mb-3">Field Action Outcome</h3>
-            <div class="grid grid-cols-2 gap-3">
-              <button type="button" class="${BTN_BASE}" data-outcome="not-home">
-                <span class="material-symbols-outlined icon-span mb-2">no_accounts</span>
-                <span class="font-headline text-[11px] font-bold uppercase tracking-tight leading-tight label-span">Not Home</span>
-              </button>
-              <button type="button" class="${BTN_BASE}" data-outcome="left-lit">
-                <span class="material-symbols-outlined icon-span mb-2">description</span>
-                <span class="font-headline text-[11px] font-bold uppercase tracking-tight leading-tight label-span">Left Literature</span>
-              </button>
-              <button type="button" class="${BTN_BASE}" data-outcome="persuasion">
-                <span class="material-symbols-outlined icon-span mb-2">campaign</span>
-                <span class="font-headline text-[11px] font-bold uppercase tracking-tight leading-tight label-span">Persuasion Convo</span>
-              </button>
-              <button type="button" class="${BTN_BASE}" data-outcome="ballot">
-                <span class="material-symbols-outlined icon-span mb-2 fill">check_circle</span>
-                <span class="font-headline text-[11px] font-bold uppercase tracking-tight leading-tight label-span">Ballot Secured</span>
-              </button>
-            </div>
-          </section>
-          <section class="space-y-2">
-            <label class="font-label text-[10px] font-bold uppercase tracking-widest text-secondary" for="notes-area">Command Notes (Optional)</label>
-            <div class="relative">
-              <textarea class="w-full bg-surface-container-lowest rounded-lg p-4 text-sm text-on-surface placeholder:text-on-surface-variant/40 resize-none ring-1 ring-outline-variant/35 focus:ring-2 focus:ring-primary focus:outline-none" id="notes-area" maxlength="150" placeholder="Add notes..." rows="3"></textarea>
-              <div class="absolute bottom-3 right-3 text-[10px] font-bold text-on-surface-variant/60 font-label" id="char-count">0 / 150</div>
-            </div>
-          </section>
+          ${renderOutcomeGridAndNotes('notes-area', 'char-count')}
         </div>
         <footer class="p-6 bg-surface-container-lowest shrink-0">
           <button type="button" data-submit class="w-full py-4 px-6 bg-secondary text-on-primary rounded-lg font-headline font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:brightness-110 transition-all active:scale-[0.98] shadow-lg">
@@ -252,5 +266,38 @@ export function bindLog(root: HTMLElement, voterId: string, revealForm = false):
   root.querySelector('[data-submit]')?.addEventListener('click', () => {
     closeLogModal()
     navigate('#/mission-complete?voter=' + encodeURIComponent(voterId))
+  })
+}
+
+/** Inline log panel for canvass walk pages (no modal, no gate). */
+export function bindInlineLogContact(root: HTMLElement, onAdvance: () => void): void {
+  const panel = root.querySelector('[data-inline-log]')
+  if (!panel) return
+
+  panel.querySelectorAll<HTMLButtonElement>('.outcome-btn').forEach((btn) => setOutcomeState(btn, false))
+
+  panel.querySelectorAll<HTMLButtonElement>('.outcome-btn').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (button.classList.contains('selected-active')) {
+        setOutcomeState(button, false)
+        return
+      }
+      resetOutcomes(panel as HTMLElement, button)
+      setOutcomeState(button, true)
+    })
+  })
+
+  const notesArea = root.querySelector<HTMLTextAreaElement>('#canvass-walk-notes')
+  const charCount = root.querySelector('#canvass-walk-char-count')
+  notesArea?.addEventListener('input', () => {
+    const len = notesArea.value.length
+    if (charCount) {
+      charCount.textContent = `${len} / 150`
+      charCount.classList.toggle('text-error', len >= 150)
+    }
+  })
+
+  root.querySelector('[data-inline-log-submit]')?.addEventListener('click', () => {
+    onAdvance()
   })
 }

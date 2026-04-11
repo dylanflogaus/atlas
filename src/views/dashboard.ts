@@ -2,8 +2,8 @@ import {
   DASHBOARD_SECTOR_STORAGE_KEY,
   dashboardStats,
   delawareRepresentativeDistricts,
-  getDelawareHousePinsForDashboardSector,
   getPriorityTargetsForSector,
+  getVoterApproxCoords,
   houseDistrictIndexAtLatLng,
   readDashboardSectorSelection,
   type Voter,
@@ -14,9 +14,12 @@ import {
   invalidateDashboardMapSize,
   mountDashboardMap,
   runDashboardCanvassRoute,
+  setDashboardCanvassRouteNewTourUi,
   setDashboardCanvassRoutePrepare,
+  setDashboardCanvassRouteTourListener,
   setDashboardRouteEstimateListener,
 } from '../map/dashboardMap'
+import { saveCanvassTourOrder } from '../canvassFlow'
 import { navigate } from '../router'
 import { cardAccent, priorityTargetBodyHtml } from './priorityTargetMarkup'
 
@@ -118,10 +121,11 @@ function ensureSectorMatchesRouteStart(
   ) {
     resolvedDistrictIndex = startDistrictIndex
   } else if (startVoterId) {
-    // Fallback for non-map route triggers (priority cards) where district hint is absent.
-    const selectedPins = getDelawareHousePinsForDashboardSector(readDashboardSectorSelection())
-    const match = selectedPins.find((p) => p.voterId === startVoterId)
-    if (match) resolvedDistrictIndex = houseDistrictIndexAtLatLng(match.lat, match.lng)
+    // Priority cards omit `data-dashboard-route-district`; carousel can show padded out-of-sector
+    // targets when a district has few priority matches — resolve from tactical pin coords, not the
+    // current sector filter.
+    const coords = getVoterApproxCoords(startVoterId)
+    if (coords) resolvedDistrictIndex = houseDistrictIndexAtLatLng(coords.lat, coords.lng)
   }
   if (resolvedDistrictIndex == null) return
   const selectedIndex = districtIndexForSectorLabel(readDashboardSectorSelection())
@@ -313,6 +317,26 @@ function applyDashboardSectorSelection(root: HTMLElement, value: string): void {
   flyDashboardMapForSectorLabel(value)
 }
 
+function applyPriorityPanelCollapsed(root: HTMLElement, collapsed: boolean): void {
+  const panel = root.querySelector('#atlas-priority-panel')
+  const btn = root.querySelector<HTMLButtonElement>('[data-priority-panel-toggle]')
+  const icon = btn?.querySelector<HTMLElement>('.material-symbols-outlined')
+  if (!panel || !btn) return
+  panel.classList.toggle('is-collapsed', collapsed)
+  btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true')
+  btn.setAttribute(
+    'aria-label',
+    collapsed ? 'Expand priority targets' : 'Collapse priority targets',
+  )
+  icon?.classList.toggle('-rotate-180', collapsed)
+  try {
+    sessionStorage.setItem(PRIORITY_PANEL_STORAGE_KEY, collapsed ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+  invalidateDashboardMapSize()
+}
+
 function syncPriorityCarouselChrome(root: HTMLElement): void {
   const carousel = root.querySelector<HTMLElement>('[data-priority-carousel]')
   const prev = root.querySelector<HTMLButtonElement>('#atlas-priority-prev')
@@ -354,6 +378,11 @@ export function bindDashboard(root: HTMLElement): void {
   setDashboardCanvassRoutePrepare((startVoterId, startDistrictIndex) =>
     ensureSectorMatchesRouteStart(root, startVoterId, startDistrictIndex),
   )
+  setDashboardCanvassRouteTourListener((orderedVoterIds) => {
+    saveCanvassTourOrder(orderedVoterIds)
+    navigate('#/canvass/briefing')
+  })
+  setDashboardCanvassRouteNewTourUi(() => applyPriorityPanelCollapsed(root, true))
   mountDashboardMap(root)
   updateRouteEstimateDisplay(root, null)
 
@@ -433,22 +462,8 @@ export function bindDashboard(root: HTMLElement): void {
     'click',
     () => {
       const panel = root.querySelector('#atlas-priority-panel')
-      const btn = root.querySelector<HTMLButtonElement>('[data-priority-panel-toggle]')
-      const icon = btn?.querySelector<HTMLElement>('.material-symbols-outlined')
-      if (!panel || !btn) return
-      const collapsed = panel.classList.toggle('is-collapsed')
-      btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true')
-      btn.setAttribute(
-        'aria-label',
-        collapsed ? 'Expand priority targets' : 'Collapse priority targets',
-      )
-      icon?.classList.toggle('-rotate-180', collapsed)
-      try {
-        sessionStorage.setItem(PRIORITY_PANEL_STORAGE_KEY, collapsed ? '1' : '0')
-      } catch {
-        /* ignore */
-      }
-      invalidateDashboardMapSize()
+      if (!panel) return
+      applyPriorityPanelCollapsed(root, !panel.classList.contains('is-collapsed'))
     },
     { signal },
   )
@@ -470,6 +485,8 @@ export function bindDashboard(root: HTMLElement): void {
 export function unmountDashboardBindings(): void {
   setDashboardRouteEstimateListener(null)
   setDashboardCanvassRoutePrepare(null)
+  setDashboardCanvassRouteTourListener(null)
+  setDashboardCanvassRouteNewTourUi(null)
   dashboardBindingsAbort?.abort()
   dashboardBindingsAbort = null
 }

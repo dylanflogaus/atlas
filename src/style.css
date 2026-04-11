@@ -72,6 +72,16 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Global achievements overlay (must float over shell/header while scrolling). */
+.atlas-achievements-fixed-overlay {
+  position: fixed !important;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 9999 !important;
+  pointer-events: auto;
+}
+
 /* Hamburger drawer — same destinations as command dock */
 .atlas-shell-menu {
   position: fixed;
@@ -172,8 +182,11 @@
   font-size: 1.5rem;
 }
 
-.atlas-shell-menu__cta {
+.atlas-shell-menu__footer {
   margin-top: auto;
+}
+
+.atlas-shell-menu__cta {
   border: none;
   background: var(--color-error);
   box-shadow:
@@ -802,4 +815,56 @@
 /* Party chip (upper right) — inset from edge so it clears the close control */
 #atlas-dashboard-map .atlas-map-popup-wrap .atlas-map-popup-card > div:first-child {
   padding-right: 2.75rem;
+}
+
+/* Canvass walk — simulated achievement toast */
+@keyframes atlas-walk-ach-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-1rem) scale(0.94);
+    filter: saturate(0.85);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(0.2rem) scale(1.02);
+    filter: saturate(1.15);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: saturate(1);
+  }
+}
+
+@keyframes atlas-walk-ach-sparkle {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 0.85;
+  }
+  40% {
+    transform: scale(1.15) rotate(-8deg);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(1.08) rotate(8deg);
+    opacity: 1;
+  }
+}
+
+.atlas-walk-achievement-toast {
+  animation: atlas-walk-ach-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.atlas-walk-achievement-sparkle {
+  animation: atlas-walk-ach-sparkle 1.2s ease-in-out 0.5s 3;
+}
+
+.atlas-walk-achievement-toast--dismiss {
+  opacity: 0;
+  transform: translateY(-0.5rem) scale(0.98);
+  transition:
+    opacity 0.55s ease,
+    transform 0.55s ease;
+  pointer-events: none;
 }

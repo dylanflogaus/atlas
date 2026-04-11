@@ -1,15 +1,20 @@
 import type { NavKey } from './router'
 import { isForceOffline, toggleForceOffline } from './offlineMode'
 import { navigate } from './router'
+import { signOut } from './views/signIn'
 
 export interface ShellOptions {
   nav: NavKey
   title?: string
   showBack?: boolean
+  /** When true, header omits menu and back (e.g. sign-in). */
+  hideHeaderNav?: boolean
   statusLine?: string
   hideNav?: boolean
   /** Allow main content to extend to the viewport bottom under the fixed dock (no shell bottom padding). */
   fullBleedMain?: boolean
+  /** Optional full-width strip between header and main (e.g. canvass progress). */
+  belowHeader?: string
 }
 
 function navItem(
@@ -48,20 +53,28 @@ export function renderShell(mainHtml: string, opts: ShellOptions): string {
     nav,
     title = 'Project Atlas',
     showBack = false,
+    hideHeaderNav = false,
     statusLine = '',
     hideNav = false,
     fullBleedMain = false,
+    belowHeader = '',
   } = opts
   const offlineOn = isForceOffline()
+
+  const headerLead = hideHeaderNav
+    ? `<span class="h-10 w-10 shrink-0" aria-hidden="true"></span>`
+    : showBack
+      ? `<button type="button" data-action="back" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-low active:scale-95 transition-transform" aria-label="Back">
+          <span class="material-symbols-outlined">arrow_back</span>
+        </button>`
+      : `<button type="button" data-action="toggle-menu" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-low" aria-expanded="false" aria-controls="atlas-shell-menu" aria-label="Open menu">
+          <span class="material-symbols-outlined">menu</span>
+        </button>`
 
   const header = `
     <header class="sticky top-0 z-50 flex h-16 items-center justify-between px-4 glass-panel">
       <div class="flex items-center gap-2 min-w-0">
-        ${showBack ? `<button type="button" data-action="back" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-low active:scale-95 transition-transform" aria-label="Back">
-          <span class="material-symbols-outlined">arrow_back</span>
-        </button>` : `<button type="button" data-action="toggle-menu" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-low" aria-expanded="false" aria-controls="atlas-shell-menu" aria-label="Open menu">
-          <span class="material-symbols-outlined">menu</span>
-        </button>`}
+        ${headerLead}
         <h1 class="font-headline truncate text-lg font-black uppercase tracking-tight text-primary">${title}</h1>
       </div>
       <div class="flex items-center gap-2 shrink-0 text-[10px] font-bold tracking-widest text-on-surface-variant">
@@ -73,7 +86,12 @@ export function renderShell(mainHtml: string, opts: ShellOptions): string {
       </div>
     </header>`
 
-  const hamburgerDrawer = showBack
+  const belowHeaderBlock =
+    belowHeader.trim() === ''
+      ? ''
+      : `<div class="sticky top-16 z-40 border-b border-outline-variant/15 bg-surface-container-low/95 backdrop-blur-sm shadow-sm">${belowHeader}</div>`
+
+  const hamburgerDrawer = showBack || hideHeaderNav
     ? ''
     : `
     <div id="atlas-shell-menu" class="atlas-shell-menu" aria-hidden="true">
@@ -90,10 +108,17 @@ export function renderShell(mainHtml: string, opts: ShellOptions): string {
           ${drawerNavItem('voters', nav, 'group', 'Voters', '#/voters')}
           ${drawerNavItem('log', nav, 'leaderboard', 'Progress', '#/log')}
           ${drawerNavItem('intel', nav, 'analytics', 'Intel', '#/intel')}
+          ${drawerNavItem('account', nav, 'account_circle', 'Profile', '#/account')}
         </div>
-        <button type="button" data-nav="#/" class="atlas-shell-menu__cta font-headline w-full shrink-0 rounded-2xl px-4 py-4 text-center text-base font-black uppercase tracking-wide text-white">
-          Start my route
-        </button>
+        <div class="atlas-shell-menu__footer flex w-full shrink-0 flex-col gap-2">
+          <button type="button" data-action="sign-out" class="font-headline flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-outline-variant/55 bg-transparent px-4 py-3 text-center text-sm font-bold uppercase tracking-wide text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface">
+            <span class="material-symbols-outlined text-[22px]">logout</span>
+            Sign out
+          </button>
+          <button type="button" data-nav="#/" class="atlas-shell-menu__cta font-headline w-full rounded-2xl px-4 py-4 text-center text-base font-black uppercase tracking-wide text-white">
+            Start my route
+          </button>
+        </div>
       </nav>
     </div>`
 
@@ -110,6 +135,7 @@ export function renderShell(mainHtml: string, opts: ShellOptions): string {
   return `
     <div class="min-h-dvh bg-background ${fullBleedMain ? '' : 'pb-nav'} font-body text-on-background selection:bg-primary/20">
       ${header}
+      ${belowHeaderBlock}
       ${hamburgerDrawer}
       <div id="view-root">${mainHtml}</div>
       ${bottomNav}
@@ -154,6 +180,17 @@ export function bindShell(root: HTMLElement): void {
 
   root.querySelectorAll<HTMLButtonElement>('[data-action="close-menu"]').forEach((btn) => {
     btn.addEventListener('click', closeHamburgerMenu, { signal })
+  })
+
+  root.querySelectorAll<HTMLButtonElement>('[data-action="sign-out"]').forEach((btn) => {
+    btn.addEventListener(
+      'click',
+      () => {
+        closeHamburgerMenu()
+        signOut()
+      },
+      { signal },
+    )
   })
 
   root.querySelectorAll<HTMLButtonElement>('[data-nav]').forEach((btn) => {
