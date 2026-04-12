@@ -91,7 +91,7 @@ function partyShort(party: Voter['party']): string {
 function renderScriptPanel(mode: keyof typeof INTEL_SCRIPT_PACKS): string {
   const s = INTEL_SCRIPT_PACKS[mode]
   return `
-    <div class="intel-section-card mt-3 space-y-0 overflow-hidden rounded-xl bg-surface-container-low ring-1 ring-outline-variant/15">
+    <div class="intel-script-panel intel-section-card mt-3 space-y-0 overflow-hidden rounded-xl bg-surface-container-low ring-1 ring-outline-variant/15">
       <div class="border-b border-outline-variant/10 bg-surface-container-high/40 px-4 py-3">
         <p class="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-secondary">${s.headline}</p>
       </div>
@@ -132,7 +132,7 @@ function renderScriptPanel(mode: keyof typeof INTEL_SCRIPT_PACKS): string {
 function renderFeaturedCard(voter: Voter): string {
   const precinct = voter.cityState.split(',')[0] || 'Turf'
   return `
-    <section class="intel-section-card relative overflow-hidden rounded-xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20">
+    <section class="intel-featured-card intel-section-card relative overflow-hidden rounded-xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20">
       <div class="absolute left-0 top-0 h-full w-1 bg-gradient-to-b from-primary via-primary/60 to-tertiary/80" aria-hidden="true"></div>
       <div class="p-4 pl-5">
         <div class="flex items-start justify-between gap-3">
@@ -206,10 +206,11 @@ export function renderIntel(): string {
   const packRows = targets
     .slice(0, 8)
     .map(
-      (v) => `
+      (v, packIdx) => `
       <a
         href="#/voters/${v.id}"
-        class="intel-section-card group flex items-center justify-between gap-3 rounded-xl border border-outline-variant/8 bg-surface-container-low px-3 py-3 ring-1 ring-outline-variant/10 transition-all hover:border-primary/18 hover:bg-surface-container-high hover:ring-primary/12"
+        style="--intel-pack-i:${packIdx}"
+        class="intel-pack-row intel-section-card group flex items-center justify-between gap-3 rounded-xl border border-outline-variant/8 bg-surface-container-low px-3 py-3 ring-1 ring-outline-variant/10 transition-all hover:border-primary/18 hover:bg-surface-container-high hover:ring-primary/12"
       >
         <div class="min-w-0 border-l-2 border-transparent pl-2 transition-colors group-hover:border-primary/35">
           <p class="truncate font-headline text-sm font-bold text-on-surface">${v.name}</p>
@@ -249,7 +250,7 @@ export function renderIntel(): string {
       <section class="intel-hero relative overflow-hidden rounded-2xl p-5 text-white ring-1 ring-white/10">
         <div class="intel-glow -right-4 -top-8" aria-hidden="true"></div>
         <div class="intel-glow bottom-0 left-1/3 h-24 w-24 opacity-70" aria-hidden="true"></div>
-        <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="intel-hero__block intel-hero__block--lead flex flex-wrap items-start justify-between gap-3">
           <div class="min-w-0">
             <p class="font-mono text-[10px] font-medium uppercase tracking-[0.28em] text-sky-200/85">Field intelligence brief</p>
             <h2 class="mt-1.5 font-headline text-xl font-black tracking-tight sm:text-2xl">Tonight’s canvass slice</h2>
@@ -262,16 +263,16 @@ export function renderIntel(): string {
             <p class="text-[11px] font-semibold tabular-nums tracking-wide text-sky-200">ATL-INT-0409</p>
           </div>
         </div>
-        <dl class="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
-          <div class="rounded-xl border border-white/10 bg-black/22 px-2 py-3 text-center backdrop-blur-md sm:px-3">
+        <dl class="intel-hero__block intel-hero__block--stats mt-5 grid grid-cols-3 gap-2 sm:gap-3">
+          <div class="intel-hero-stat rounded-xl border border-white/10 bg-black/22 px-2 py-3 text-center backdrop-blur-md sm:px-3">
             <dt class="text-[9px] font-black uppercase leading-tight tracking-wider text-white/65">High reliability</dt>
             <dd class="mt-1 font-mono text-xl font-bold tabular-nums tracking-tight">${highProp}</dd>
           </div>
-          <div class="rounded-xl border border-white/10 bg-black/22 px-2 py-3 text-center backdrop-blur-md sm:px-3">
+          <div class="intel-hero-stat rounded-xl border border-white/10 bg-black/22 px-2 py-3 text-center backdrop-blur-md sm:px-3">
             <dt class="text-[9px] font-black uppercase leading-tight tracking-wider text-white/65">Pack avg support</dt>
             <dd class="mt-1 font-mono text-xl font-bold tabular-nums tracking-tight text-sky-100">${avgSupport || '—'}%</dd>
           </div>
-          <div class="rounded-xl border border-white/10 bg-black/22 px-2 py-3 text-center backdrop-blur-md sm:px-3">
+          <div class="intel-hero-stat rounded-xl border border-white/10 bg-black/22 px-2 py-3 text-center backdrop-blur-md sm:px-3">
             <dt class="text-[9px] font-black uppercase leading-tight tracking-wider text-white/65">Comms</dt>
             <dd class="mt-1 font-mono text-[11px] font-semibold leading-snug text-white/92">F2 / text lead</dd>
           </div>
@@ -403,7 +404,13 @@ function syncTabUI(root: HTMLElement, tab: string): void {
     btn.setAttribute('aria-selected', on ? 'true' : 'false')
   })
   root.querySelectorAll<HTMLElement>('.intel-panel[data-intel-panel]').forEach((panel) => {
-    panel.classList.toggle('hidden', panel.dataset.intelPanel !== tab)
+    const show = panel.dataset.intelPanel === tab
+    panel.classList.toggle('hidden', !show)
+    if (show) {
+      panel.classList.remove('intel-panel--enter')
+      void panel.offsetWidth
+      panel.classList.add('intel-panel--enter')
+    }
   })
 }
 

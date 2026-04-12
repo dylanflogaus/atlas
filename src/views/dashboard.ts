@@ -182,8 +182,8 @@ export function renderDashboard(): string {
             id="atlas-priority-panel"
             class="group pointer-events-auto space-y-2 ${priorityCollapsed ? 'is-collapsed' : ''}"
           >
-            <div class="flex items-end justify-between gap-3 px-1 drop-shadow-[0_1px_8px_rgb(0_0_0/0.45)]">
-              <h2 class="font-headline text-lg font-extrabold uppercase italic tracking-tight text-white text-shadow-[0_1px_2px_rgb(0_0_0/1),0_2px_12px_rgb(0_0_0/0.54)]">Priority Targets</h2>
+            <div class="flex items-center justify-between gap-3 px-1">
+              <h2 class="atlas-priority-panel-title font-headline text-lg font-extrabold uppercase italic tracking-tight text-white">Priority Targets</h2>
               <button
                 type="button"
                 data-priority-panel-toggle
@@ -192,7 +192,7 @@ export function renderDashboard(): string {
                 aria-controls="atlas-priority-carousel-region"
                 aria-label="${priorityCollapsed ? 'Expand priority targets' : 'Collapse priority targets'}"
               >
-                <span class="material-symbols-outlined transition-transform duration-300 ease-out motion-reduce:transition-none ${priorityCollapsed ? '-rotate-180' : ''}" aria-hidden="true">expand_more</span>
+                <span class="material-symbols-outlined origin-center transition-transform duration-300 ease-out motion-reduce:transition-none ${priorityCollapsed ? '-rotate-180' : ''}" aria-hidden="true">keyboard_arrow_down</span>
               </button>
             </div>
             <div

@@ -10,12 +10,12 @@ function escapeAttr(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
 }
 
-function row(v: Voter): string {
+function row(v: Voter, index: number): string {
   const partyClass =
     v.party === 'IND' ? 'text-amber-700 bg-amber-500/15' : v.party === 'REP' ? 'text-secondary bg-secondary/15' : 'text-on-surface-variant bg-surface-container-high'
 
   return `
-    <button type="button" data-voter-row data-party="${v.party}" data-voter-search="${escapeAttr(voterSearchHaystack(v))}" data-goto="/voters/${v.id}" class="w-full text-left bg-surface-container-low hover:bg-surface-container-high transition-colors p-4 rounded-lg shadow-sm flex items-center gap-4">
+    <button type="button" style="--voters-i:${index}" data-voter-row data-party="${v.party}" data-voter-search="${escapeAttr(voterSearchHaystack(v))}" data-goto="/voters/${v.id}" class="voters-row w-full text-left bg-surface-container-low hover:bg-surface-container-high transition-colors p-4 rounded-lg shadow-sm flex items-center gap-4">
       <img src="${v.photoUrl}" alt="" class="h-14 w-14 rounded-lg object-cover shrink-0 ring-2 ring-white shadow" width="56" height="56" />
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 flex-wrap">
@@ -37,10 +37,12 @@ export function renderVotersList(): string {
   ].join('')
 
   return `
-    <main class="px-4 pt-4 pb-6 max-w-4xl mx-auto">
-      <p class="text-[10px] font-black text-secondary tracking-widest uppercase mb-3">Field registry</p>
-      <h2 class="font-headline font-black text-2xl text-on-surface uppercase tracking-tight mb-4">All Targets</h2>
-      <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-stretch">
+    <main class="voters-view px-4 pt-4 pb-6 max-w-4xl mx-auto">
+      <header class="voters-header">
+        <p class="text-[10px] font-black text-secondary tracking-widest uppercase mb-3">Field registry</p>
+        <h2 class="font-headline font-black text-2xl text-on-surface uppercase tracking-tight mb-4">All Targets</h2>
+      </header>
+      <div class="voters-toolbar mb-6 flex flex-col gap-3 sm:flex-row sm:items-stretch">
         <div class="relative min-w-0 flex-1">
           <span class="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 z-[1] -translate-y-1/2 text-xl text-secondary">search</span>
           <input
@@ -67,7 +69,7 @@ export function renderVotersList(): string {
       </div>
       <p data-voters-empty class="hidden rounded-lg border border-outline-variant/25 bg-surface-container-low px-4 py-10 text-center text-sm text-on-surface-variant">No voters match your search or filter.</p>
       <div data-voters-rows class="flex flex-col gap-3">
-        ${voters.map(row).join('')}
+        ${voters.map((v, i) => row(v, i)).join('')}
       </div>
     </main>`
 }

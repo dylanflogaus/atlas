@@ -263,6 +263,7 @@
       color-mix(in srgb, var(--color-tertiary) 75%, #0a1014) 42%,
       color-mix(in srgb, var(--color-primary) 45%, #12080a) 100%
     );
+  background-size: 200% 200%;
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.07),
     0 12px 40px rgb(0 0 0 / 0.12);
@@ -309,6 +310,329 @@
 .intel-tab:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--color-primary) 55%, transparent);
   outline-offset: 2px;
+}
+
+/* Intel page — motion (respects prefers-reduced-motion below) */
+@keyframes intel-hero-gradient-pan {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  40% {
+    background-position: 85% 35%;
+  }
+  70% {
+    background-position: 25% 65%;
+  }
+}
+
+@keyframes intel-glow-float-a {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(14px, -12px) scale(1.07);
+    opacity: 0.88;
+  }
+}
+
+@keyframes intel-glow-float-b {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translate(-16px, 10px) scale(1.05);
+    opacity: 1;
+  }
+}
+
+@keyframes intel-hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes intel-stat-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(0.65rem) scale(0.9);
+  }
+  72% {
+    opacity: 1;
+    transform: translateY(-0.15rem) scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes intel-tab-pop {
+  0% {
+    transform: scale(0.93);
+  }
+  60% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes intel-tab-icon-wiggle {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  30% {
+    transform: rotate(-8deg);
+  }
+  65% {
+    transform: rotate(8deg);
+  }
+}
+
+@keyframes intel-panel-swap {
+  from {
+    opacity: 0;
+    transform: translateY(0.55rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes intel-script-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(0.45rem) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes intel-pack-row-in {
+  from {
+    opacity: 0;
+    transform: translateX(-0.45rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes intel-featured-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.04),
+      0 0 0 0 rgb(158 0 31 / 0);
+  }
+  50% {
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.04),
+      0 0 28px -6px rgb(158 0 31 / 0.22);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .intel-hero {
+    animation: intel-hero-gradient-pan 16s ease-in-out infinite;
+  }
+
+  .intel-hero > .intel-glow:nth-child(1) {
+    animation: intel-glow-float-a 9.5s ease-in-out infinite;
+  }
+
+  .intel-hero > .intel-glow:nth-child(2) {
+    animation: intel-glow-float-b 12s ease-in-out infinite;
+    animation-delay: -3s;
+  }
+
+  .intel-hero__block--lead {
+    animation: intel-hero-rise 0.72s cubic-bezier(0.22, 1, 0.36, 1) 0.06s backwards;
+  }
+
+  .intel-hero__block--stats {
+    animation: intel-hero-rise 0.72s cubic-bezier(0.22, 1, 0.36, 1) 0.16s backwards;
+  }
+
+  .intel-hero-stat:nth-child(1) {
+    animation: intel-stat-pop 0.58s cubic-bezier(0.34, 1.2, 0.64, 1) 0.24s backwards;
+  }
+
+  .intel-hero-stat:nth-child(2) {
+    animation: intel-stat-pop 0.58s cubic-bezier(0.34, 1.2, 0.64, 1) 0.34s backwards;
+  }
+
+  .intel-hero-stat:nth-child(3) {
+    animation: intel-stat-pop 0.58s cubic-bezier(0.34, 1.2, 0.64, 1) 0.44s backwards;
+  }
+
+  .intel-tab[aria-selected='true'] {
+    animation: intel-tab-pop 0.48s cubic-bezier(0.34, 1.45, 0.64, 1);
+  }
+
+  .intel-tab[aria-selected='true'] .material-symbols-outlined {
+    animation: intel-tab-icon-wiggle 0.55s ease-out 0.06s 1;
+  }
+
+  .intel-panel.intel-panel--enter {
+    animation: intel-panel-swap 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .intel-script-panel {
+    animation: intel-script-reveal 0.44s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .intel-pack-row {
+    animation: intel-pack-row-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(var(--intel-pack-i, 0) * 58ms);
+  }
+
+  .intel-featured-card {
+    animation: intel-featured-glow 4.5s ease-in-out infinite;
+  }
+
+  .intel-view .intel-section-card {
+    transition:
+      transform 0.22s ease,
+      box-shadow 0.28s ease;
+  }
+
+  .intel-view a.intel-section-card:hover,
+  .intel-view label.intel-section-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgb(0 0 0 / 0.07);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intel-hero,
+  .intel-hero > .intel-glow,
+  .intel-hero__block,
+  .intel-hero-stat,
+  .intel-tab,
+  .intel-tab .material-symbols-outlined,
+  .intel-panel,
+  .intel-script-panel,
+  .intel-pack-row,
+  .intel-featured-card {
+    animation: none !important;
+  }
+
+  .intel-view .intel-section-card {
+    transition: none;
+  }
+}
+
+/* Voters list page (src/views/votersList.ts) */
+@keyframes voters-block-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.65rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes voters-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.45rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes voters-empty-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .voters-header {
+    animation: voters-block-in 0.58s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  .voters-toolbar {
+    animation: voters-block-in 0.52s cubic-bezier(0.22, 1, 0.36, 1) 0.1s backwards;
+  }
+
+  .voters-row {
+    animation: voters-row-in 0.44s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(0.14s + var(--voters-i, 0) * 38ms);
+    transition:
+      transform 0.22s ease,
+      box-shadow 0.26s ease,
+      background-color 0.2s ease;
+  }
+
+  .voters-row:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 28px rgb(0 0 0 / 0.09);
+  }
+
+  .voters-row img {
+    transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .voters-row:hover img {
+    transform: scale(1.05);
+  }
+
+  .voters-row .material-symbols-outlined:last-child {
+    transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .voters-row:hover .material-symbols-outlined:last-child {
+    transform: translateX(5px);
+  }
+
+  .voters-view [data-voters-empty]:not(.hidden) {
+    animation: voters-empty-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voters-header,
+  .voters-toolbar,
+  .voters-row,
+  .voters-view [data-voters-empty] {
+    animation: none !important;
+  }
+
+  .voters-row {
+    transition: background-color 0.2s ease;
+  }
+
+  .voters-row img,
+  .voters-row .material-symbols-outlined:last-child {
+    transition: none;
+  }
 }
 
 /* Dashboard map status bar + sector listbox (reference layout) */
@@ -548,6 +872,13 @@
 }
 
 /* Dashboard map (Leaflet) + priority overlay */
+.atlas-priority-panel-title {
+  text-shadow:
+    0 1px 2px rgb(0 0 0 / 1),
+    0 2px 16px rgb(0 0 0 / 0.68),
+    0 5px 32px rgb(0 0 0 / 0.52);
+}
+
 .atlas-priority-arrow-btn {
   display: inline-flex;
   align-items: center;
@@ -583,12 +914,27 @@
 }
 
 .atlas-priority-arrow-btn:focus-visible {
-  outline: 2px solid rgb(255 255 255 / 0.55);
+  outline: 2px solid rgb(255 255 255 / 0.2);
   outline-offset: 2px;
 }
 
 .atlas-priority-arrow-btn--round {
   border-radius: 999px;
+  min-width: 2.375rem;
+  min-height: 2.375rem;
+  background: rgb(0 0 0 / 0.22);
+  border-color: rgb(255 255 255 / 0.9);
+  box-shadow: none;
+  color: #fff;
+}
+
+.atlas-priority-arrow-btn--round:hover {
+  background: rgb(0 0 0 / 0.3);
+  border-color: rgb(255 255 255 / 0.22);
+}
+
+.atlas-priority-arrow-btn--round:active {
+  background: rgb(0 0 0 / 0.36);
 }
 
 .atlas-priority-arrow-btn .material-symbols-outlined {
@@ -600,6 +946,17 @@
     'opsz' 20;
   line-height: 1;
   filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.65)) drop-shadow(0 0 1px rgb(0 0 0 / 0.8));
+}
+
+/* Panel collapse control: bolder chevron + light halo so it reads on the map */
+.atlas-priority-arrow-btn--round .material-symbols-outlined {
+  font-size: 2rem;
+  font-variation-settings:
+    'FILL' 0,
+    'wght' 500,
+    'GRAD' 0,
+    'opsz' 24;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 1)) drop-shadow(0 0 1px rgb(0 0 0 / 0.5));
 }
 
 @media (max-width: 640px) {

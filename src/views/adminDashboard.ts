@@ -464,14 +464,34 @@ function channelBaselineForRegion(region: AdminRegion): ChannelBaseline[] {
   return [...merged.values()]
 }
 
+/** Skews channel mix so region/window swaps read clearly in the stacked bar. */
+function channelVisualTilt(region: AdminRegion, window: AdminWindow, key: string): number {
+  const tilt: Record<string, number> =
+    region === 'all'
+      ? { door: 1, phone: 1, sms: 1, rel: 1 }
+      : region === 'new-castle'
+        ? { door: 1, phone: 0.88, sms: 1.28, rel: 1.06 }
+        : region === 'kent'
+          ? { door: 1.22, phone: 1.08, sms: 0.78, rel: 0.92 }
+          : { door: 1.12, phone: 1.2, sms: 0.82, rel: 0.86 }
+  const windowTilt =
+    window === '24h'
+      ? { door: 1.14, phone: 1.02, sms: 0.72, rel: 1.1 }
+      : window === '30d'
+        ? { door: 0.94, phone: 1.06, sms: 1.18, rel: 1.04 }
+        : { door: 1, phone: 1, sms: 1, rel: 1 }
+  return (tilt[key] ?? 1) * (windowTilt[key as keyof typeof windowTilt] ?? 1)
+}
+
 function buildChannelRows(region: AdminRegion, window: AdminWindow): ChannelRow[] {
-  const conversionAdj = window === '24h' ? 0.96 : window === '30d' ? 1.07 : 1
+  const conversionAdj = window === '24h' ? 0.78 : window === '30d' ? 1.24 : 1
   return channelBaselineForRegion(region)
     .map((row) => {
       const reached = scaleCount(row.reached, window)
+      const tilt = channelVisualTilt(region, window, row.key)
       const conversions = Math.min(
         reached,
-        Math.max(0, Math.round(row.conversions * WINDOW_SCALE[window] * conversionAdj)),
+        Math.max(0, Math.round(row.conversions * WINDOW_SCALE[window] * conversionAdj * tilt)),
       )
       const spend = Math.max(0, Math.round(row.spend * WINDOW_SCALE[window] * (window === '30d' ? 1.1 : 1)))
       const conversionRate = reached > 0 ? (conversions / reached) * 100 : 0
@@ -490,14 +510,26 @@ function buildChannelRows(region: AdminRegion, window: AdminWindow): ChannelRow[
 function buildDistrictRows(region: AdminRegion, window: AdminWindow): DistrictRow[] {
   const baselines =
     region === 'all' ? DISTRICT_BASELINES : DISTRICT_BASELINES.filter((row) => row.region === region)
+  const contactWindowBoost = window === '24h' ? 0.78 : window === '30d' ? 1.14 : 1.02
   return baselines
     .map((row) => {
       const goal = goalScale(row.goal, window)
-      const contacts = Math.min(goal, scaleCount(row.contacts, window, window === '24h' ? 1 : 1.03))
+      const regionBoost =
+        region === 'all'
+          ? row.region === 'new-castle'
+            ? 1.02
+            : row.region === 'kent'
+              ? 0.96
+              : 0.94
+          : 1.06
+      const contacts = Math.min(
+        goal,
+        scaleCount(row.contacts, window, contactWindowBoost * regionBoost),
+      )
       const ballotPlans = Math.min(contacts, scaleCount(row.ballotPlans, window, 1.04))
       const contactPace = goal > 0 ? (contacts / goal) * 100 : 0
       const persuasionIndex = clamp(
-        row.persuasionIndex + (window === '24h' ? 1.5 : window === '30d' ? -1.2 : 0),
+        row.persuasionIndex + (window === '24h' ? 4 : window === '30d' ? -3.5 : 0),
         35,
         92,
       )
@@ -753,19 +785,82 @@ const CHANNEL_CHART_SHORT: Record<string, string> = {
   rel: 'Relational',
 }
 
-function buildVelocitySeries(snapshot: AdminSnapshot, points = 16): { doors: number[]; conversations: number[] } {
+function velocityPointCount(window: AdminWindow): number {
+  if (window === '24h') return 8
+  if (window === '30d') return 24
+  return 16
+}
+
+function velocityWaveSeed(window: AdminWindow, region: AdminRegion, doorsEnd: number): number {
+  const regionSalt =
+    region === 'all' ? 1.1 : region === 'new-castle' ? 2.3 : region === 'kent' ? 3.7 : 4.9
+  const windowSalt = window === '24h' ? 0.4 : window === '30d' ? 2.1 : 1
+  return doorsEnd * 0.0006 + regionSalt * 1.15 + windowSalt
+}
+
+function velocityDoorEasePow(window: AdminWindow, region: AdminRegion): number {
+  const base = window === '24h' ? 0.88 : window === '30d' ? 1.72 : 1.38
+  const reg =
+    region === 'kent' ? 0.12 : region === 'sussex' ? 0.08 : region === 'new-castle' ? -0.06 : 0
+  return base + reg
+}
+
+function velocityConvEasePow(window: AdminWindow, region: AdminRegion): number {
+  const doorPow = velocityDoorEasePow(window, region)
+  const lag =
+    region === 'kent' ? 0.28 : region === 'sussex' ? 0.18 : region === 'new-castle' ? -0.04 : 0.06
+  return doorPow + lag + (window === '24h' ? 0.14 : window === '30d' ? -0.08 : 0)
+}
+
+function buildVelocitySeries(
+  snapshot: AdminSnapshot,
+  window: AdminWindow,
+  region: AdminRegion,
+): { doors: number[]; conversations: number[] } {
   const doorsEnd = snapshot.doorsKnocked
   const convEnd = snapshot.conversations
   const doors: number[] = []
   const conversations: number[] = []
-  const n = Math.max(2, points)
+  const n = Math.max(2, velocityPointCount(window))
+  const seed = velocityWaveSeed(window, region, doorsEnd)
+  const doorPow = velocityDoorEasePow(window, region)
+  const convPow = velocityConvEasePow(window, region)
+  const waveAmp = window === '24h' ? 0.13 : window === '30d' ? 0.034 : 0.078
+  const harmonic =
+    window === '24h' ? 0.055 : window === '30d' ? 0.022 : 0.038
+  const lateSurge =
+    region === 'kent' ? 1.12 : region === 'sussex' ? 1.06 : region === 'new-castle' ? 1.02 : 1.04
+  const flatHead = window === '24h' ? 0.22 : window === '30d' ? 0.06 : 0.1
+
   for (let i = 0; i < n; i++) {
     const t = i / (n - 1)
-    const ease = 1 - (1 - t) ** 1.35
-    const wave = 1 + 0.035 * Math.sin(i * 0.9 + doorsEnd * 0.0007)
-    doors.push(Math.max(0, Math.round(doorsEnd * ease * wave * (0.58 + 0.42 * t))))
+    const headDamp = t < flatHead ? (t / flatHead) ** (window === '24h' ? 1.8 : 0.9) : 1
+    const easeD = (1 - (1 - t) ** doorPow) * headDamp
+    const surge = 1 + (lateSurge - 1) * t ** (window === '24h' ? 2.4 : 1.6)
+    const wave =
+      1 +
+      waveAmp * Math.sin(i * 0.9 + seed) +
+      harmonic * Math.sin(i * 2.05 + seed * 1.4 + (region === 'sussex' ? 0.9 : 0))
+    doors.push(Math.max(0, Math.round(doorsEnd * easeD * wave * surge * (0.52 + 0.48 * t))))
+
+    const easeC = 1 - (1 - t) ** convPow
+    const convWave =
+      1 +
+      waveAmp * 0.85 * Math.sin(i * 0.88 + seed + 0.6) +
+      harmonic * 0.7 * Math.sin(i * 1.95 + seed)
+    const gap =
+      1 +
+      (window === '24h' ? 0.06 : window === '30d' ? -0.02 : 0.02) *
+        Math.sin(Math.PI * t) *
+        (region === 'kent' ? 1.25 : region === 'sussex' ? 1.1 : 1)
     conversations.push(
-      Math.min(doors[i], Math.max(0, Math.round(convEnd * ease * (0.55 + 0.45 * t) * (1 + 0.02 * Math.sin(i * 1.1))))),
+      Math.min(
+        doors[i]!,
+        Math.max(
+          0,
+          Math.round(convEnd * easeC * (0.48 + 0.52 * t) * convWave * gap),
+        ),
+      ),
     )
   }
   doors[n - 1] = doorsEnd
@@ -819,8 +914,14 @@ function shortDistrictLabel(name: string, maxLen = 28): string {
   return `${name.slice(0, maxLen - 1)}…`
 }
 
-function renderVelocityChart(snapshot: AdminSnapshot): string {
-  const { doors, conversations } = buildVelocitySeries(snapshot)
+function velocityWindowTickStart(window: AdminWindow): string {
+  if (window === '24h') return '24h ago'
+  if (window === '30d') return '30d ago'
+  return '7d ago'
+}
+
+function renderVelocityChart(snapshot: AdminSnapshot, window: AdminWindow, region: AdminRegion): string {
+  const { doors, conversations } = buildVelocitySeries(snapshot, window, region)
   const maxV = Math.max(1, ...doors, ...conversations) * 1.06
   const w = 420
   const h = 172
@@ -835,8 +936,9 @@ function renderVelocityChart(snapshot: AdminSnapshot): string {
   const iw = w - padL - padR
   const ih = h - padT - padB
   const xLast = padL + iw
-  const yD = padT + ih - (doors[lastIdx] / maxV) * ih
-  const yC = padT + ih - (conversations[lastIdx] / maxV) * ih
+  const yD = padT + ih - (doors[lastIdx]! / maxV) * ih
+  const yC = padT + ih - (conversations[lastIdx]! / maxV) * ih
+  const tickStart = velocityWindowTickStart(window)
 
   return `
     <div class="admin-chart admin-chart--velocity">
@@ -888,13 +990,13 @@ function renderVelocityChart(snapshot: AdminSnapshot): string {
         </svg>
       </div>
       <div class="admin-chart__ticks" aria-hidden="true">
-        <span>Window open</span>
+        <span>${tickStart}</span>
         <span>Now</span>
       </div>
     </div>`
 }
 
-function renderChannelMixChart(snapshot: AdminSnapshot): string {
+function renderChannelMixChart(snapshot: AdminSnapshot, state: AdminViewState): string {
   const rows = snapshot.channelRows
   const totalRaw = rows.reduce((sum, r) => sum + r.conversions, 0)
   const denom = Math.max(totalRaw, 1)
@@ -925,21 +1027,23 @@ function renderChannelMixChart(snapshot: AdminSnapshot): string {
       </li>`
     })
     .join('')
+  const scope = `${WINDOW_LABEL[state.window]} · ${REGION_LABEL[state.region]}`
   return `
     <div class="admin-channel-lift">
       <p class="admin-channel-lift__kicker">
         <span class="admin-channel-lift__total">${NUMBER_FMT.format(totalRaw)}</span>
-        <span class="admin-channel-lift__kicker-label">commitments in channel mix</span>
+        <span class="admin-channel-lift__kicker-label">commitments in channel mix · ${escapeHtml(scope)}</span>
       </p>
       <div class="admin-channel-lift__track" role="img" aria-label="Share of commitments by outreach program">${mix}</div>
       <ul class="admin-channel-lift__legend">${legend}</ul>
     </div>`
 }
 
-function renderDistrictPaceChart(snapshot: AdminSnapshot): string {
+function renderDistrictPaceChart(snapshot: AdminSnapshot, state: AdminViewState): string {
   const sorted = [...snapshot.districtRows].sort((a, b) => b.contactPace - a.contactPace).slice(0, 6)
+  const scope = `${WINDOW_LABEL[state.window]} · ${REGION_LABEL[state.region]}`
   return `
-    <div class="admin-hbar-list" role="img" aria-label="District contact pace ranking">
+    <div class="admin-hbar-list" role="img" aria-label="District contact pace ranking · ${escapeHtml(scope)}">
       ${sorted
         .map(
           (row, i) => `
@@ -955,29 +1059,30 @@ function renderDistrictPaceChart(snapshot: AdminSnapshot): string {
     </div>`
 }
 
-function renderAnalyticsCharts(snapshot: AdminSnapshot): string {
+function renderAnalyticsCharts(snapshot: AdminSnapshot, state: AdminViewState): string {
+  const scopeLine = `${WINDOW_LABEL[state.window]} · ${REGION_LABEL[state.region]}`
   return `
     <div class="admin-analytics-grid grid gap-4 xl:grid-cols-2">
       <article class="admin-panel admin-panel--chart p-4 admin-reveal" style="--admin-reveal-delay:0s">
         <div class="admin-panel__header">
           <h3>Field velocity</h3>
-          <p>Cumulative doors vs. conversations · ${formatPercent(snapshot.conversationRate)} yield</p>
+          <p>${escapeHtml(scopeLine)} · cumulative doors vs. conversations · ${formatPercent(snapshot.conversationRate)} yield</p>
         </div>
-        ${renderVelocityChart(snapshot)}
+        ${renderVelocityChart(snapshot, state.window, state.region)}
       </article>
       <article class="admin-panel admin-panel--chart admin-panel--channel-lift p-4 admin-reveal" style="--admin-reveal-delay:0.06s">
         <div class="admin-panel__header">
           <h3>Channel lift</h3>
-          <p>Share of commitments · conversion yield by program</p>
+          <p>${escapeHtml(scopeLine)} · share of commitments · conversion yield by program</p>
         </div>
-        ${renderChannelMixChart(snapshot)}
+        ${renderChannelMixChart(snapshot, state)}
       </article>
       <article class="admin-panel admin-panel--chart admin-panel--chart-wide p-4 xl:col-span-2 admin-reveal" style="--admin-reveal-delay:0.11s">
         <div class="admin-panel__header">
           <h3>District pace leaders</h3>
-          <p>Top districts by contact pace · ${NUMBER_FMT.format(snapshot.ballotPlans)} ballot plans in view</p>
+          <p>${escapeHtml(scopeLine)} · top districts by contact pace · ${NUMBER_FMT.format(snapshot.ballotPlans)} ballot plans in view</p>
         </div>
-        ${renderDistrictPaceChart(snapshot)}
+        ${renderDistrictPaceChart(snapshot, state)}
       </article>
     </div>`
 }
@@ -1109,6 +1214,23 @@ function renderRecommendations(snapshot: AdminSnapshot): string {
     .join('')
 }
 
+function revealAdminChartsIfInViewport(root: HTMLElement): void {
+  const charts = root.querySelector<HTMLElement>('[data-admin-charts]')
+  if (!charts) return
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (reduceMotion) {
+    charts.querySelectorAll<HTMLElement>('.admin-reveal').forEach((el) => el.classList.add('admin-reveal--visible'))
+    return
+  }
+  const vh = window.innerHeight
+  charts.querySelectorAll<HTMLElement>('.admin-reveal').forEach((el) => {
+    const rect = el.getBoundingClientRect()
+    if (rect.bottom > 0 && rect.top < vh) {
+      el.classList.add('admin-reveal--visible')
+    }
+  })
+}
+
 function syncFilterButtons(root: HTMLElement, state: AdminViewState): void {
   root.querySelectorAll<HTMLButtonElement>('[data-admin-window-btn]').forEach((btn) => {
     const on = btn.dataset.adminWindowBtn === state.window
@@ -1155,7 +1277,10 @@ function syncDashboard(root: HTMLElement, state: AdminViewState): void {
   const recommendations = root.querySelector<HTMLElement>('[data-admin-recommendations]')
   if (recommendations) recommendations.innerHTML = renderRecommendations(snapshot)
   const charts = root.querySelector<HTMLElement>('[data-admin-charts]')
-  if (charts) charts.innerHTML = renderAnalyticsCharts(snapshot)
+  if (charts) {
+    charts.innerHTML = renderAnalyticsCharts(snapshot, state)
+    revealAdminChartsIfInViewport(root)
+  }
 
   setText(root, '[data-admin-undecided]', NUMBER_FMT.format(snapshot.undecidedUniverse))
   setText(root, '[data-admin-burn]', CURRENCY_FMT.format(snapshot.burnPerDay))
