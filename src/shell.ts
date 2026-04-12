@@ -159,7 +159,7 @@ export function renderShell(mainHtml: string, opts: ShellOptions): string {
     </nav>`
 
   return `
-    <div class="min-h-dvh bg-background ${fullBleedMain ? '' : 'pb-nav'} font-body text-on-background selection:bg-primary/20" data-shell-variant="${headerVariant}">
+    <div class="min-h-dvh bg-background ${fullBleedMain || hideNav ? '' : 'pb-nav'} font-body text-on-background selection:bg-primary/20" data-shell-variant="${headerVariant}">
       ${header}
       ${belowHeaderBlock}
       ${hamburgerDrawer}
