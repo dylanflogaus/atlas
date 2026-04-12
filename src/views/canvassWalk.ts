@@ -3,6 +3,7 @@ import type { Voter } from '../data'
 import { getVoterApproxCoords } from '../data'
 import {
   clearCanvassTourOrder,
+  consumeCanvassAchievementRevealForStop,
   readCanvassTourOrder,
   WALK_SIM_ACHIEVEMENT_STORAGE_KEY,
 } from '../canvassFlow'
@@ -74,13 +75,6 @@ const WALK_SIM_ACHIEVEMENT_POOL: WalkSimAchievement[] = [
 function pickRandomWalkSimAchievement(): WalkSimAchievement {
   const i = Math.floor(Math.random() * WALK_SIM_ACHIEVEMENT_POOL.length)
   return WALK_SIM_ACHIEVEMENT_POOL[i]!
-}
-
-/** Milestone stops favor a toast; others roll random. */
-function shouldOfferWalkSimAchievement(completedStopIndex: number): boolean {
-  const milestone = completedStopIndex === 0 || completedStopIndex === 2 || completedStopIndex === 4
-  if (milestone) return Math.random() < 0.88
-  return Math.random() < 0.38
 }
 
 function queuePendingWalkSimAchievement(a: WalkSimAchievement): void {
@@ -203,13 +197,13 @@ export function renderCanvassWalkProgressStrip(index: number, total: number): st
   const remaining = Math.max(0, total - index)
   const fillPct = Math.min(100, Math.round((completed / total) * 100))
   return `
-    <div class="px-4 py-2.5">
+    <div class="atlas-canvass-progress-strip px-4 py-2.5">
       <div class="mx-auto flex max-w-6xl items-center justify-between gap-2 font-mono text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
         <span>Voters in route</span>
         <span class="tabular-nums text-on-surface">${remaining} left in this route</span>
       </div>
       <div class="mx-auto mt-2 max-w-6xl h-2 overflow-hidden rounded-full bg-surface-container-highest ring-1 ring-outline-variant/20">
-        <div class="h-full rounded-full bg-gradient-to-r from-primary to-secondary shadow-sm transition-[width] duration-500" style="width: ${fillPct}%"></div>
+        <div class="atlas-canvass-progress-strip__fill h-full rounded-full bg-gradient-to-r from-primary to-secondary shadow-sm" style="width: ${fillPct}%"></div>
       </div>
       <p class="mx-auto mt-1.5 max-w-6xl text-center text-[10px] font-bold uppercase tracking-wide text-on-surface-variant">Stop ${index + 1} of ${total}</p>
     </div>`
@@ -222,14 +216,24 @@ export function renderCanvassWalk(v: Voter, pendingAchievement: WalkSimAchieveme
   const toastHtml = pendingAchievement ? renderWalkSimAchievementToast(pendingAchievement) : ''
 
   return `
-    <main class="canvass-walk mx-auto w-full max-w-lg space-y-4 px-4 pb-28 pt-3 sm:px-6">
+    <main class="canvass-walk atlas-route-flow-page mx-auto w-full max-w-lg space-y-4 px-4 pb-28 pt-3 sm:px-6">
+      <div class="atlas-route-flow-rise flex justify-end -mt-0.5" style="--atlas-rf-d: 0ms">
+        <button
+          type="button"
+          data-canvass-walk-skip
+          class="font-headline text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant/55 hover:text-on-surface-variant/80 py-1.5 px-2 -mr-1 rounded-md hover:bg-surface-container-highest/55 active:scale-[0.98] transition-colors"
+          aria-label="Skip this stop without submitting a log"
+        >
+          Skip stop
+        </button>
+      </div>
       ${toastHtml}
-      <section class="overflow-hidden rounded-2xl shadow-md ring-1 ring-outline-variant/20">
+      <section class="atlas-route-flow-rise overflow-hidden rounded-2xl shadow-md ring-1 ring-outline-variant/20" style="--atlas-rf-d: 58ms">
         <div id="atlas-walk-map" class="atlas-walk-map z-0 min-h-[200px] w-full" style="height:220px" role="img" aria-label="Map near voter"></div>
         <p class="bg-surface-container-low px-3 py-2 font-mono text-[10px] text-on-surface-variant">Approximate stop · ${lat.toFixed(4)}, ${lng.toFixed(4)}</p>
       </section>
 
-      <section class="rounded-2xl border border-outline-variant/12 bg-surface-container-lowest p-4 ring-1 ring-outline-variant/10">
+      <section class="atlas-route-flow-rise rounded-2xl border border-outline-variant/12 bg-surface-container-lowest p-4 ring-1 ring-outline-variant/10" style="--atlas-rf-d: 115ms">
         <p class="font-mono text-[10px] font-bold uppercase tracking-widest text-secondary">Current voter</p>
         <h2 class="mt-1 font-headline text-xl font-black text-on-surface">${v.name}</h2>
         <p class="mt-1 text-sm text-on-surface-variant">${v.address}, ${v.cityState}</p>
@@ -244,7 +248,7 @@ export function renderCanvassWalk(v: Voter, pendingAchievement: WalkSimAchieveme
 
       ${renderInlineLogContact()}
 
-      <div class="pt-2">
+      <div class="atlas-route-flow-rise pt-2" style="--atlas-rf-d: 220ms">
         <button type="button" data-inline-log-submit class="flex w-full items-center justify-center gap-2 rounded-xl bg-secondary py-4 font-headline text-sm font-bold uppercase tracking-widest text-on-primary shadow-lg transition-all active:scale-[0.98]">
           <span>Submit &amp; next</span>
           <span class="material-symbols-outlined">arrow_forward</span>
@@ -327,10 +331,10 @@ export function bindCanvassWalk(root: HTMLElement, index: number, voter: Voter):
         /* ignore */
       }
       clearCanvassTourOrder()
-      navigate('#/log')
+      navigate(`#/mission-complete?voter=${encodeURIComponent(voter.id)}`)
       return
     }
-    if (shouldOfferWalkSimAchievement(index)) {
+    if (consumeCanvassAchievementRevealForStop(nextIdx)) {
       queuePendingWalkSimAchievement(pickRandomWalkSimAchievement())
     } else {
       try {
@@ -341,6 +345,10 @@ export function bindCanvassWalk(root: HTMLElement, index: number, voter: Voter):
     }
     navigate(`#/canvass/walk/${nextIdx}`)
   }
+
+  root.querySelector('[data-canvass-walk-skip]')?.addEventListener('click', () => {
+    advance()
+  })
 
   bindInlineLogContact(root, advance)
 }

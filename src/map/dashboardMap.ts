@@ -12,6 +12,7 @@ import {
   type DelawareHousePin,
 } from '../data'
 import { cardAccent, priorityTargetBodyHtml } from '../views/priorityTargetMarkup'
+import { openVoterFileModal } from '../views/profile'
 
 const DASHBOARD_MAP_VIEW_STORAGE_KEY = 'atlas-dashboard-map-view'
 
@@ -196,6 +197,18 @@ let canvassRouteTourListener: DashboardCanvassRouteTourListener | null = null
 
 export function setDashboardCanvassRouteTourListener(fn: DashboardCanvassRouteTourListener | null): void {
   canvassRouteTourListener = fn
+}
+
+/** True while a canvass driving route polyline is drawn on the dashboard map (cleared on unmount). */
+export function isDashboardCanvassRouteActiveOnMap(): boolean {
+  return canvassRoutePolylineActive && lastCanvassRouteRecalc != null
+}
+
+let canvassRouteStopsDepletedListener: (() => void) | null = null
+
+/** Fires when the map clears the route because fewer than two eligible stops remain (e.g. exclusions). */
+export function setDashboardCanvassRouteStopsDepletedListener(fn: (() => void) | null): void {
+  canvassRouteStopsDepletedListener = fn
 }
 
 function notifyRouteEstimate(totalSeconds: number | null): void {
@@ -416,9 +429,16 @@ function tacticalPinRouteAdjustHtml(pin: DelawareHousePin): string {
   return `<button type="button" data-dashboard-route-remove="${esc}" data-dashboard-route-district="${pinDistrictIndex}" class="${REMOVE_FROM_ROUTE_POPUP_BTN_CLASS}">Remove from route</button>`
 }
 
+const VOTER_FILE_POPUP_BTN_CLASS =
+  'inline-flex items-center gap-1 text-sm font-medium text-primary underline-offset-2 hover:underline mt-1 w-fit bg-transparent border-0 p-0 cursor-pointer text-left font-inherit'
+
 function tacticalPinPopupHtml(pin: DelawareHousePin): string {
   const v = getVoter(pin.voterId)
-  const voterFileHref = `#/voters/${encodeURIComponent(pin.voterId)}`
+  const escId = pin.voterId.replace(/"/g, '&quot;')
+  const safeAddrAttr = pin.address
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
   const pinDistrictIndex = houseDistrictIndexAtLatLng(pin.lat, pin.lng)
   const startRouteBtn = `<button type="button" data-dashboard-route="${pin.voterId.replace(/"/g, '&quot;')}" data-dashboard-route-district="${pinDistrictIndex}" class="${START_ROUTE_POPUP_BTN_CLASS}">Start Route</button>`
   const routeAdjustBtn = tacticalPinRouteAdjustHtml(pin)
@@ -429,15 +449,18 @@ function tacticalPinPopupHtml(pin: DelawareHousePin): string {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
-    return `<div class="atlas-map-popup atlas-map-popup-panel bg-surface-container-low p-4 rounded-lg" style="font:500 13px/1.35 var(--font-body,Inter,sans-serif);color:#191c1d"><p style="font-weight:700;margin:0 0 8px">${safeAddr}</p><p style="margin:0 0 10px;color:#3f4446;font-size:12px">No voter record for this pin.</p><a href="${voterFileHref}" style="color:#9e001f;font-weight:700;font-size:14px;text-decoration:underline;text-underline-offset:2px">Open voter file →</a>${startRouteBtn}${routeAdjustBtn}</div>`
+    const voterFileBtn = `<button type="button" data-dashboard-voter-file="${escId}" data-dashboard-voter-file-address="${safeAddrAttr}" class="${VOTER_FILE_POPUP_BTN_CLASS}" style="color:#9e001f;font-weight:700;font-size:14px;text-decoration:underline;text-underline-offset:2px">Open voter file<span class="text-[0.92em] opacity-90" aria-hidden="true">→</span></button>`
+    return `<div class="atlas-map-popup atlas-map-popup-panel bg-surface-container-low p-4 rounded-lg" style="font:500 13px/1.35 var(--font-body,Inter,sans-serif);color:#191c1d"><p style="font-weight:700;margin:0 0 8px">${safeAddr}</p><p style="margin:0 0 10px;color:#3f4446;font-size:12px">No voter record for this pin.</p>${voterFileBtn}${startRouteBtn}${routeAdjustBtn}</div>`
   }
+
+  const voterFileBtn = `<button type="button" data-dashboard-voter-file="${escId}" class="${VOTER_FILE_POPUP_BTN_CLASS}">
+        Open voter file<span class="text-[0.92em] opacity-90" aria-hidden="true">→</span>
+      </button>`
 
   return `<div class="atlas-map-popup" style="font:500 13px/1.35 var(--font-body,Inter,sans-serif);color:#191c1d;min-width:260px">
     <article class="atlas-map-popup-card bg-surface-container-low p-4 flex flex-col ${cardAccent(v.party)} rounded-lg">
       ${priorityTargetBodyHtml(v)}
-      <a href="#/voters/${v.id}" class="inline-flex items-center gap-1 text-sm font-medium text-primary underline-offset-2 hover:underline mt-1 w-fit">
-        Open voter file<span class="text-[0.92em] opacity-90" aria-hidden="true">→</span>
-      </a>
+      ${voterFileBtn}
       ${startRouteBtn}
       ${routeAdjustBtn}
     </article>
@@ -743,17 +766,15 @@ export async function runDashboardCanvassRoute(
         startDistrictIndex: hasDistrictHint ? startDistrictIndex : undefined,
       }
       canvassRoutePolylineActive = true
-      if (resetExcludedPins) {
-        const orderedVoterIds: string[] = []
-        const seen = new Set<string>()
-        for (const pin of ordered) {
-          if (!seen.has(pin.voterId)) {
-            seen.add(pin.voterId)
-            orderedVoterIds.push(pin.voterId)
-          }
+      const orderedVoterIds: string[] = []
+      const seen = new Set<string>()
+      for (const pin of ordered) {
+        if (!seen.has(pin.voterId)) {
+          seen.add(pin.voterId)
+          orderedVoterIds.push(pin.voterId)
         }
-        canvassRouteTourListener?.(orderedVoterIds)
       }
+      canvassRouteTourListener?.(orderedVoterIds)
     }
   } catch {
     /* network, Leaflet, or race with unmount */
@@ -976,6 +997,18 @@ export function mountDashboardMap(root: HTMLElement): void {
   root.addEventListener(
     'click',
     (e) => {
+      const voterFileBtn = (e.target as HTMLElement).closest<HTMLElement>('[data-dashboard-voter-file]')
+      if (voterFileBtn && el.contains(voterFileBtn)) {
+        e.preventDefault()
+        e.stopPropagation()
+        const id = voterFileBtn.dataset.dashboardVoterFile?.trim()
+        if (!id) return
+        const addrAttr = voterFileBtn.getAttribute('data-dashboard-voter-file-address')
+        map.closePopup()
+        openVoterFileModal(id, addrAttr ? { fallbackAddress: addrAttr } : undefined)
+        return
+      }
+
       const removeBtn = (e.target as HTMLElement).closest<HTMLElement>(
         '[data-dashboard-route-remove]',
       )
@@ -990,6 +1023,7 @@ export function mountDashboardMap(root: HTMLElement): void {
           const remaining = getCanvassRoutePinsEligible(lastCanvassRouteRecalc.startDistrictIndex)
           if (remaining.length < 2) {
             clearDashboardCanvassRoute()
+            canvassRouteStopsDepletedListener?.()
           } else {
             void runDashboardCanvassRoute(
               lastCanvassRouteRecalc.startVoterId,

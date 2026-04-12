@@ -62,7 +62,6 @@ export function renderSignIn(): string {
                 name="email"
                 type="email"
                 autocomplete="username"
-                required
                 placeholder="you@organization.org"
                 class="w-full rounded-lg border border-outline-variant/50 bg-surface-container-lowest px-3.5 py-3 font-body text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none transition-shadow focus:border-primary/40 focus:ring-2 focus:ring-primary/20"
               />
@@ -74,7 +73,6 @@ export function renderSignIn(): string {
                 name="password"
                 type="password"
                 autocomplete="current-password"
-                required
                 placeholder="••••••••"
                 class="w-full rounded-lg border border-outline-variant/50 bg-surface-container-lowest px-3.5 py-3 font-body text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none transition-shadow focus:border-primary/40 focus:ring-2 focus:ring-primary/20"
               />
@@ -104,6 +102,12 @@ export function renderSignIn(): string {
         <p class="mt-8 text-center font-body text-xs text-on-surface-variant/80">
           Field organizers only. Unauthorized access is monitored.
         </p>
+        <p class="mt-5 text-center">
+          <a
+            href="#/admin"
+            class="font-body text-[10px] font-medium tracking-widest text-on-surface-variant/55 transition-colors duration-150 hover:text-primary"
+          >Campaign metrics</a>
+        </p>
       </div>
     </main>`
 }
@@ -123,16 +127,7 @@ export function bindSignIn(root: HTMLElement): void {
     e.preventDefault()
     const fd = new FormData(form)
     const email = String(fd.get('email') ?? '').trim()
-    const password = String(fd.get('password') ?? '')
     const remember = fd.get('remember') === 'on'
-
-    if (!email || !password) {
-      if (errEl) {
-        errEl.textContent = 'Enter your email and password to continue.'
-        errEl.classList.remove('hidden')
-      }
-      return
-    }
 
     if (errEl) {
       errEl.textContent = ''
@@ -142,14 +137,24 @@ export function bindSignIn(root: HTMLElement): void {
     try {
       if (remember) {
         localStorage.setItem(SESSION_KEY, '1')
-        localStorage.setItem(PROFILE_EMAIL_KEY, email)
         sessionStorage.removeItem(SESSION_KEY)
-        sessionStorage.removeItem(PROFILE_EMAIL_KEY)
+        if (email) {
+          localStorage.setItem(PROFILE_EMAIL_KEY, email)
+          sessionStorage.removeItem(PROFILE_EMAIL_KEY)
+        } else {
+          localStorage.removeItem(PROFILE_EMAIL_KEY)
+          sessionStorage.removeItem(PROFILE_EMAIL_KEY)
+        }
       } else {
         sessionStorage.setItem(SESSION_KEY, '1')
-        sessionStorage.setItem(PROFILE_EMAIL_KEY, email)
         localStorage.removeItem(SESSION_KEY)
-        localStorage.removeItem(PROFILE_EMAIL_KEY)
+        if (email) {
+          sessionStorage.setItem(PROFILE_EMAIL_KEY, email)
+          localStorage.removeItem(PROFILE_EMAIL_KEY)
+        } else {
+          sessionStorage.removeItem(PROFILE_EMAIL_KEY)
+          localStorage.removeItem(PROFILE_EMAIL_KEY)
+        }
       }
     } catch {
       /* ignore storage failures; still allow navigation */

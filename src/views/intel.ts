@@ -35,6 +35,15 @@ export const INTEL_SCRIPT_PACKS: Record<'supporter' | 'undecided' | 'opposed', S
   },
 }
 
+export type IntelScriptPackKey = keyof typeof INTEL_SCRIPT_PACKS
+
+/** Map modeled support to the script pack shown on the briefing carousel and Intel tabs. */
+export function intelScriptPackKeyForSupportScore(supportScore: number): IntelScriptPackKey {
+  if (supportScore >= 72) return 'supporter'
+  if (supportScore <= 42) return 'opposed'
+  return 'undecided'
+}
+
 export const INTEL_ROUTE_DEADLINES: { id: string; title: string; date: string; detail: string }[] = [
   {
     id: 'reg',
@@ -187,12 +196,11 @@ export function renderIntel(): string {
       ? Math.round(targets.reduce((acc, v) => acc + v.supportScore, 0) / targets.length)
       : 0
 
-  const saved = readChecklist()
   const checklistHtml = [
-    renderChecklistItem('id', 'ID badge visible + campaign authorized', saved.has('id')),
-    renderChecklistItem('lit', 'Liter handouts & yard sign inventory', saved.has('lit')),
-    renderChecklistItem('charge', 'Phone / tablet charged; maps offline', saved.has('charge')),
-    renderChecklistItem('safety', 'Buddy check-in and incident number saved', saved.has('safety')),
+    renderChecklistItem('id', 'ID badge visible + campaign authorized', false),
+    renderChecklistItem('lit', 'Liter handouts & yard sign inventory', false),
+    renderChecklistItem('charge', 'Phone / tablet charged; maps offline', false),
+    renderChecklistItem('safety', 'Buddy check-in and incident number saved', false),
   ].join('')
 
   const packRows = targets
@@ -313,7 +321,7 @@ export function renderIntel(): string {
             </span>
             Pre-walk checklist
           </h3>
-          <p class="mt-1 text-xs text-on-surface-variant">Saved on this device for your next shift.</p>
+          <p class="mt-1 text-xs text-on-surface-variant">Checklist starts fresh each time you open this page.</p>
           <div class="mt-3 space-y-2">${checklistHtml}</div>
         </section>
 
@@ -444,6 +452,29 @@ export function readIntelChecklistState(): Set<string> {
   return readChecklist()
 }
 
+/** Reset pre-walk checklist when a new canvass driving route is generated. */
+export function clearIntelChecklistState(): void {
+  try {
+    writeChecklist(new Set())
+  } catch {
+    /* private mode */
+  }
+}
+
+/** Persist checklist toggles from briefing or Intel UI (shared localStorage). */
+export function bindIntelChecklistInputs(root: HTMLElement): void {
+  root.querySelectorAll<HTMLInputElement>('[data-intel-check]').forEach((input) => {
+    const id = input.dataset.intelCheck
+    if (!id) return
+    input.addEventListener('change', () => {
+      const next = readChecklist()
+      if (input.checked) next.add(id)
+      else next.delete(id)
+      writeChecklist(next)
+    })
+  })
+}
+
 export function bindIntel(root: HTMLElement): void {
   syncTabUI(root, 'mission')
 
@@ -464,17 +495,6 @@ export function bindIntel(root: HTMLElement): void {
         disposition = d
         syncDispositionUI(root, disposition)
       }
-    })
-  })
-
-  root.querySelectorAll<HTMLInputElement>('[data-intel-check]').forEach((input) => {
-    const id = input.dataset.intelCheck
-    if (!id) return
-    input.addEventListener('change', () => {
-      const next = readChecklist()
-      if (input.checked) next.add(id)
-      else next.delete(id)
-      writeChecklist(next)
     })
   })
 

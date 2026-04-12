@@ -32,7 +32,7 @@ export function renderCanvassGoals(): string {
   const ballotsLeft = Math.max(0, chaser.ballotGoal - chaser.ballotsSecured)
 
   return `
-    <main class="canvass-goals mx-auto w-full max-w-lg space-y-6 px-4 pb-28 pt-4 sm:px-6">
+    <main class="canvass-goals atlas-route-flow-page mx-auto w-full max-w-lg space-y-6 px-4 pb-28 pt-4 sm:px-6">
       <div>
         <p class="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-secondary">Shift goals</p>
         <h2 class="mt-1 font-headline text-2xl font-black tracking-tight text-on-surface">Your progress</h2>
@@ -48,7 +48,7 @@ export function renderCanvassGoals(): string {
             <span class="font-mono text-sm font-black text-on-surface">${chaser.doorsKnocked}<span class="text-on-surface-variant font-bold"> / ${chaser.doorsGoal}</span></span>
           </div>
           <div class="h-3 overflow-hidden rounded-full bg-surface-container-highest ring-1 ring-outline-variant/25">
-            <div class="h-full rounded-full bg-gradient-to-r from-primary via-primary-container to-secondary shadow-sm" style="width: ${doorPct}%"></div>
+            <div class="atlas-route-flow-goals-meter__fill atlas-route-flow-goals-meter__fill--doors h-full rounded-full bg-gradient-to-r from-primary via-primary-container to-secondary shadow-sm" style="width: ${doorPct}%"></div>
           </div>
           <p class="text-xs font-medium text-on-surface-variant">${doorsLeft === 0 ? 'Door goal met — great work.' : `${doorsLeft} more doors to hit your door goal.`}</p>
         </div>
@@ -58,7 +58,7 @@ export function renderCanvassGoals(): string {
             <span class="font-mono text-sm font-black text-on-surface">${chaser.ballotsSecured}<span class="text-on-surface-variant font-bold"> / ${chaser.ballotGoal}</span></span>
           </div>
           <div class="h-3 overflow-hidden rounded-full bg-surface-container-highest ring-1 ring-outline-variant/25">
-            <div class="h-full rounded-full bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-500 shadow-sm" style="width: ${ballotPct}%"></div>
+            <div class="atlas-route-flow-goals-meter__fill atlas-route-flow-goals-meter__fill--ballots h-full rounded-full bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-500 shadow-sm" style="width: ${ballotPct}%"></div>
           </div>
           <p class="text-xs font-medium text-on-surface-variant">${ballotsLeft === 0 ? 'Ballot goal met for this sprint.' : `${ballotsLeft} more ballot touches to reach your ballot goal.`}</p>
         </div>
@@ -68,7 +68,7 @@ export function renderCanvassGoals(): string {
         ${renderChaserAchievementsBlock(chaser.achievements, { rootClass: 'relative mt-0' })}
       </section>
 
-      <div class="fixed bottom-16 left-0 right-0 z-30 border-t border-outline-variant/15 bg-surface/95 px-4 py-3 backdrop-blur-md safe-bottom">
+      <div class="atlas-route-flow-cta-bar fixed bottom-16 left-0 right-0 z-30 border-t border-outline-variant/15 bg-surface/95 px-4 py-3 backdrop-blur-md safe-bottom">
         <button type="button" data-canvass-goals-continue class="mx-auto flex w-full max-w-lg items-center justify-center gap-2 rounded-xl bg-primary py-3.5 font-headline text-sm font-black uppercase tracking-widest text-on-primary shadow-md active:scale-[0.99] transition-transform">
           Continue to walk list
           <span class="material-symbols-outlined text-xl">arrow_forward</span>

@@ -1,5 +1,7 @@
 import type { Voter } from '../data'
+import { ballotChasers } from '../data'
 import { navigate } from '../router'
+import { renderVolunteerLeaderboardSection } from './volunteerLeaderboard'
 
 export function renderConfirmation(v: Voter): string {
   const initials = v.name
@@ -8,23 +10,52 @@ export function renderConfirmation(v: Voter): string {
     .join('')
     .slice(0, 2)
 
+  const youChaser = ballotChasers[0]
+  const leaderboardHtml = renderVolunteerLeaderboardSection(youChaser)
+
   return `
     <main class="max-w-md mx-auto px-6 pt-8 pb-12">
-      <section class="flex flex-col items-center text-center mb-10">
-        <div class="relative mb-6">
-          <div class="absolute -top-4 -left-4 text-primary opacity-40 pointer-events-none">
+      <section class="mission-complete-hero flex flex-col items-center text-center mb-10">
+        <div class="mission-complete-hero-glow" aria-hidden="true"></div>
+        <div class="mission-complete-confetti" aria-hidden="true">
+          <span class="mission-complete-confetti-piece"></span>
+          <span class="mission-complete-confetti-piece"></span>
+          <span class="mission-complete-confetti-piece"></span>
+          <span class="mission-complete-confetti-piece"></span>
+          <span class="mission-complete-confetti-piece"></span>
+          <span class="mission-complete-confetti-piece"></span>
+          <span class="mission-complete-confetti-piece"></span>
+          <span class="mission-complete-confetti-piece"></span>
+          <span class="mission-complete-confetti-piece"></span>
+          <span class="mission-complete-confetti-piece"></span>
+          <span class="mission-complete-confetti-piece"></span>
+          <span class="mission-complete-confetti-piece"></span>
+          <span class="mission-complete-confetti-piece"></span>
+          <span class="mission-complete-confetti-piece"></span>
+          <span class="mission-complete-confetti-piece"></span>
+          <span class="mission-complete-confetti-piece"></span>
+        </div>
+        <div class="relative mb-6 mission-complete-badge-wrap">
+          <div class="mission-complete-badge-pulse" aria-hidden="true"></div>
+          <div class="mission-complete-ribbon mission-complete-ribbon--tl absolute -top-4 -left-4 text-primary opacity-40 pointer-events-none">
             <span class="material-symbols-outlined text-4xl fill">stars</span>
           </div>
-          <div class="absolute -bottom-2 -right-6 text-tertiary opacity-40 pointer-events-none">
+          <div class="mission-complete-ribbon mission-complete-ribbon--br absolute -bottom-2 -right-6 text-tertiary opacity-40 pointer-events-none">
             <span class="material-symbols-outlined text-3xl fill">auto_awesome</span>
           </div>
-          <div class="w-24 h-24 bg-primary rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(158,0,31,0.25)] ring-4 ring-white">
-            <span class="material-symbols-outlined text-on-primary text-5xl fill">check_circle</span>
+          <div class="mission-complete-badge w-24 h-24 bg-primary rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(158,0,31,0.25)] ring-4 ring-white">
+            <span class="mission-complete-check material-symbols-outlined text-on-primary text-5xl fill">check_circle</span>
           </div>
         </div>
-        <h2 class="font-headline text-3xl font-black uppercase tracking-tight text-primary leading-none mb-2">Mission Accomplished</h2>
-        <p class="font-label text-secondary text-sm font-semibold tracking-widest uppercase">Target Verified & Synchronized</p>
+        <h2 class="mission-complete-title font-headline text-3xl font-black uppercase tracking-tight text-primary leading-none mb-2">
+          Mission Accomplished
+        </h2>
+        <p class="mission-complete-subtitle font-label text-secondary text-sm font-semibold tracking-widest uppercase">
+          Target Verified & Synchronized
+        </p>
       </section>
+
+      ${leaderboardHtml}
 
       <section class="bg-surface-container-low rounded-xl p-6 mb-8 shadow-sm ring-1 ring-outline-variant/15 relative overflow-hidden">
         <div class="absolute top-0 right-0 p-2 opacity-5 pointer-events-none">
@@ -47,24 +78,24 @@ export function renderConfirmation(v: Voter): string {
         </div>
       </section>
 
-      <section class="bg-surface-container-highest rounded-xl p-6 mb-10 ring-1 ring-outline-variant/15">
+      <section data-field-performance-section class="bg-surface-container-highest rounded-xl p-6 mb-10 ring-1 ring-outline-variant/15">
         <div class="flex justify-between items-end mb-4">
           <div>
             <p class="font-label text-xs font-bold text-secondary uppercase tracking-widest mb-1">Field Performance</p>
-            <h4 class="font-headline text-4xl font-black text-on-surface leading-none">12<span class="text-xl text-secondary">/20</span></h4>
+            <h4 class="font-headline text-4xl font-black text-on-surface leading-none">14<span class="text-xl text-secondary">/20</span></h4>
           </div>
           <div class="text-right">
             <p class="font-label text-[10px] font-bold text-primary uppercase tracking-tighter bg-primary-fixed px-2 py-1 rounded text-on-primary-fixed">Rank: Tactical Lead</p>
           </div>
         </div>
         <div class="relative h-4 bg-surface-dim rounded-full overflow-hidden mb-4">
-          <div class="absolute top-0 left-0 h-full bg-primary rounded-full transition-all duration-1000 ease-out w-[60%]">
+          <div data-field-performance-bar class="absolute top-0 left-0 h-full max-w-full bg-primary rounded-full transition-[width] duration-1000 ease-out" style="width:0%">
             <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
           </div>
         </div>
         <div class="flex items-center gap-3 justify-center">
           <span class="material-symbols-outlined text-primary">military_tech</span>
-          <p class="font-body text-sm font-bold text-secondary uppercase tracking-tight">8 more to reach elite status</p>
+          <p class="font-body text-sm font-bold text-secondary uppercase tracking-tight">Six more to reach elite status</p>
         </div>
       </section>
 
@@ -81,7 +112,36 @@ export function renderConfirmation(v: Voter): string {
     </main>`
 }
 
+const FIELD_PERFORMANCE_TARGET_PCT = 70
+
 export function bindConfirmation(root: HTMLElement): void {
   root.querySelector('[data-next]')?.addEventListener('click', () => navigate('#/'))
-  root.querySelector('[data-home]')?.addEventListener('click', () => navigate('#/'))
+  root.querySelector('[data-home]')?.addEventListener('click', () => navigate('#/log'))
+
+  const section = root.querySelector<HTMLElement>('[data-field-performance-section]')
+  const bar = root.querySelector<HTMLElement>('[data-field-performance-bar]')
+  if (!section || !bar) return
+
+  const fillBar = (): void => {
+    bar.style.width = `${FIELD_PERFORMANCE_TARGET_PCT}%`
+  }
+
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    fillBar()
+    return
+  }
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue
+        requestAnimationFrame(() => {
+          requestAnimationFrame(fillBar)
+        })
+        observer.disconnect()
+      }
+    },
+    { root: null, rootMargin: '0px 0px -8% 0px', threshold: 0.12 },
+  )
+  observer.observe(section)
 }

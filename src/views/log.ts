@@ -123,7 +123,7 @@ function renderOutcomeGridAndNotes(notesFieldId: string, charCountId: string): s
 /** Scrollable log contact block for canvass walk (no modal wrapper). */
 export function renderInlineLogContact(): string {
   return `
-    <section data-inline-log class="rounded-2xl border border-outline-variant/12 bg-surface-container-lowest p-4 ring-1 ring-outline-variant/15 space-y-6">
+    <section data-inline-log class="atlas-route-flow-rise rounded-2xl border border-outline-variant/12 bg-surface-container-lowest p-4 ring-1 ring-outline-variant/15 space-y-6" style="--atlas-rf-d: 170ms">
       <h3 class="font-headline text-sm font-black uppercase tracking-wider text-primary">Log contact</h3>
       ${renderOutcomeGridAndNotes('canvass-walk-notes', 'canvass-walk-char-count')}
     </section>`

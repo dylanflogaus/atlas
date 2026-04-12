@@ -15,6 +15,8 @@ export interface ShellOptions {
   fullBleedMain?: boolean
   /** Optional full-width strip between header and main (e.g. canvass progress). */
   belowHeader?: string
+  /** Dark command-center chrome for `/admin` and similar views. */
+  headerVariant?: 'default' | 'admin'
 }
 
 function navItem(
@@ -58,28 +60,52 @@ export function renderShell(mainHtml: string, opts: ShellOptions): string {
     hideNav = false,
     fullBleedMain = false,
     belowHeader = '',
+    headerVariant = 'default',
   } = opts
   const offlineOn = isForceOffline()
+  const isAdminShell = headerVariant === 'admin'
+
+  const headerClass = isAdminShell
+    ? 'sticky top-0 z-50 flex h-16 items-center justify-between px-4 atlas-shell-header--admin'
+    : 'sticky top-0 z-50 flex h-16 items-center justify-between px-4 glass-panel'
+
+  const titleClass = isAdminShell
+    ? 'font-headline truncate text-lg font-black uppercase tracking-tight text-slate-100'
+    : 'font-headline truncate text-lg font-black uppercase tracking-tight text-primary'
+
+  const backBtnClass =
+    'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg active:scale-95 transition-transform ' +
+    (isAdminShell
+      ? 'text-slate-300 hover:bg-white/10'
+      : 'text-on-surface-variant hover:bg-surface-container-low')
+
+  const menuBtnClass =
+    'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ' +
+    (isAdminShell ? 'text-slate-300 hover:bg-white/10' : 'text-on-surface-variant hover:bg-surface-container-low')
 
   const headerLead = hideHeaderNav
     ? `<span class="h-10 w-10 shrink-0" aria-hidden="true"></span>`
     : showBack
-      ? `<button type="button" data-action="back" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-low active:scale-95 transition-transform" aria-label="Back">
+      ? `<button type="button" data-action="back" class="${backBtnClass}" aria-label="Back">
           <span class="material-symbols-outlined">arrow_back</span>
         </button>`
-      : `<button type="button" data-action="toggle-menu" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-low" aria-expanded="false" aria-controls="atlas-shell-menu" aria-label="Open menu">
+      : `<button type="button" data-action="toggle-menu" class="${menuBtnClass}" aria-expanded="false" aria-controls="atlas-shell-menu" aria-label="Open menu">
           <span class="material-symbols-outlined">menu</span>
         </button>`
 
+  const offlineIdleClass = isAdminShell
+    ? 'hover:bg-white/10 text-slate-400'
+    : 'hover:bg-surface-container-low text-on-surface-variant'
+
   const header = `
-    <header class="sticky top-0 z-50 flex h-16 items-center justify-between px-4 glass-panel">
+    <header class="${headerClass}">
       <div class="flex items-center gap-2 min-w-0">
         ${headerLead}
-        <h1 class="font-headline truncate text-lg font-black uppercase tracking-tight text-primary">${title}</h1>
+        <h1 class="${titleClass}">${title}</h1>
       </div>
-      <div class="flex items-center gap-2 shrink-0 text-[10px] font-bold tracking-widest text-on-surface-variant">
+      <div class="flex items-center gap-2 shrink-0 text-[10px] font-bold tracking-widest ${isAdminShell ? 'text-slate-500' : 'text-on-surface-variant'}">
         ${statusLine ? `<span class="uppercase">${statusLine}</span>` : ''}
-        <button type="button" data-action="toggle-offline" class="flex items-center gap-1 rounded-lg px-2 py-1 transition-colors ${offlineOn ? 'bg-primary/10 text-primary' : 'hover:bg-surface-container-low text-on-surface-variant'}" aria-pressed="${!offlineOn}" aria-label="${offlineOn ? 'Go online' : 'Go offline'}">
+        <button type="button" data-action="toggle-offline" class="flex items-center gap-1 rounded-lg px-2 py-1 transition-colors ${offlineOn ? 'bg-primary/15 text-primary' : offlineIdleClass}" aria-pressed="${!offlineOn}" aria-label="${offlineOn ? 'Go online' : 'Go offline'}">
           <span class="material-symbols-outlined text-sm ${offlineOn ? 'fill' : ''}">${offlineOn ? 'wifi_off' : 'wifi'}</span>
           <span class="uppercase tracking-widest">Online</span>
         </button>
@@ -133,7 +159,7 @@ export function renderShell(mainHtml: string, opts: ShellOptions): string {
     </nav>`
 
   return `
-    <div class="min-h-dvh bg-background ${fullBleedMain ? '' : 'pb-nav'} font-body text-on-background selection:bg-primary/20">
+    <div class="min-h-dvh bg-background ${fullBleedMain ? '' : 'pb-nav'} font-body text-on-background selection:bg-primary/20" data-shell-variant="${headerVariant}">
       ${header}
       ${belowHeaderBlock}
       ${hamburgerDrawer}
@@ -227,10 +253,16 @@ export function bindShell(root: HTMLElement): void {
         }
         btn.setAttribute('aria-pressed', String(!next))
         btn.setAttribute('aria-label', next ? 'Go online' : 'Go offline')
-        btn.classList.toggle('bg-primary/10', next)
+        const adminShell = root.dataset.shellVariant === 'admin'
+        btn.classList.toggle('bg-primary/15', next)
         btn.classList.toggle('text-primary', next)
-        btn.classList.toggle('hover:bg-surface-container-low', !next)
-        btn.classList.toggle('text-on-surface-variant', !next)
+        if (adminShell) {
+          btn.classList.toggle('hover:bg-white/10', !next)
+          btn.classList.toggle('text-slate-400', !next)
+        } else {
+          btn.classList.toggle('hover:bg-surface-container-low', !next)
+          btn.classList.toggle('text-on-surface-variant', !next)
+        }
       },
       { signal },
     )

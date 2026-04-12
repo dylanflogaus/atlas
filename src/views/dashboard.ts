@@ -9,23 +9,27 @@ import {
   type Voter,
 } from '../data'
 import {
-  clearDashboardCanvassRoute,
+   clearDashboardCanvassRoute,
   flyDashboardMapForSectorLabel,
   invalidateDashboardMapSize,
+  isDashboardCanvassRouteActiveOnMap,
   mountDashboardMap,
   runDashboardCanvassRoute,
   setDashboardCanvassRouteNewTourUi,
   setDashboardCanvassRoutePrepare,
+  setDashboardCanvassRouteStopsDepletedListener,
   setDashboardCanvassRouteTourListener,
   setDashboardRouteEstimateListener,
 } from '../map/dashboardMap'
-import { saveCanvassTourOrder } from '../canvassFlow'
+import { clearCanvassTourOrder, saveCanvassTourOrder } from '../canvassFlow'
+import { clearIntelChecklistState } from './intel'
 import { navigate } from '../router'
 import { cardAccent, priorityTargetBodyHtml } from './priorityTargetMarkup'
 
 const PRIORITY_PANEL_STORAGE_KEY = 'atlas-priority-panel-collapsed'
 
 let dashboardBindingsAbort: AbortController | null = null
+let routeFlowAnnounceTimer: number | null = null
 
 function readPriorityPanelInitiallyCollapsed(): boolean {
   try {
@@ -138,7 +142,7 @@ function ensureSectorMatchesRouteStart(
 export function renderDashboard(): string {
   const selectedSector = readDashboardSectorSelection()
   const targets = getPriorityTargetsForSector(selectedSector)
-  const priorityCollapsed = readPriorityPanelInitiallyCollapsed()
+   const priorityCollapsed = readPriorityPanelInitiallyCollapsed()
 
   return `
     <main class="min-h-0">
@@ -147,6 +151,21 @@ export function renderDashboard(): string {
         aria-label="Sector map and priority targets"
       >
         <div id="atlas-dashboard-map" class="absolute inset-0 z-0 min-h-[200px]" role="application" aria-label="Live sector map"></div>
+        <div class="pointer-events-none absolute left-4 right-20 top-4 z-20">
+          <div
+            data-dashboard-route-flow-cta
+            class="atlas-dashboard-route-flow-cta pointer-events-auto hidden"
+          >
+            <button
+              type="button"
+              data-dashboard-open-route-flow
+              class="atlas-dashboard-route-flow-btn rounded-xl px-4 py-3 text-center font-headline text-xs font-black uppercase tracking-widest text-white"
+            >
+              <span class="material-symbols-outlined text-base" aria-hidden="true">route</span>
+              <span>Start my route</span>
+            </button>
+          </div>
+        </div>
         <div class="absolute right-4 top-4 z-20 flex flex-col gap-2">
           <button type="button" data-map-zoom="in" class="glass-panel flex h-10 w-10 items-center justify-center rounded-lg text-secondary shadow-sm active:scale-95 transition-transform" aria-label="Zoom in">
             <span class="material-symbols-outlined">add</span>
@@ -314,7 +333,36 @@ function applyDashboardSectorSelection(root: HTMLElement, value: string): void {
   updateSectorListSelection(root, value)
   updatePriorityCarousel(root, value)
   clearDashboardCanvassRoute()
+  clearCanvassTourOrder()
+  setRouteFlowEntryVisible(root, false)
   flyDashboardMapForSectorLabel(value)
+}
+
+function setRouteFlowEntryVisible(root: HTMLElement, visible: boolean): void {
+  const wrap = root.querySelector<HTMLElement>('[data-dashboard-route-flow-cta]')
+  if (!wrap) return
+  const wasHidden = wrap.classList.contains('hidden')
+  wrap.classList.toggle('hidden', !visible)
+  if (!visible) {
+    if (routeFlowAnnounceTimer != null) {
+      window.clearTimeout(routeFlowAnnounceTimer)
+      routeFlowAnnounceTimer = null
+    }
+    wrap.classList.remove('atlas-dashboard-route-flow-cta--announce')
+    return
+  }
+  if (!wasHidden) return
+  // Retrigger animation each time this CTA appears after route generation.
+  wrap.classList.remove('atlas-dashboard-route-flow-cta--announce')
+  void wrap.offsetWidth
+  wrap.classList.add('atlas-dashboard-route-flow-cta--announce')
+  if (routeFlowAnnounceTimer != null) {
+    window.clearTimeout(routeFlowAnnounceTimer)
+  }
+  routeFlowAnnounceTimer = window.setTimeout(() => {
+    wrap.classList.remove('atlas-dashboard-route-flow-cta--announce')
+    routeFlowAnnounceTimer = null
+  }, 3200)
 }
 
 function applyPriorityPanelCollapsed(root: HTMLElement, collapsed: boolean): void {
@@ -375,16 +423,24 @@ export function bindDashboard(root: HTMLElement): void {
   const { signal } = dashboardBindingsAbort
 
   setDashboardRouteEstimateListener((totalSeconds) => updateRouteEstimateDisplay(root, totalSeconds))
-  setDashboardCanvassRoutePrepare((startVoterId, startDistrictIndex) =>
-    ensureSectorMatchesRouteStart(root, startVoterId, startDistrictIndex),
-  )
+  setDashboardCanvassRoutePrepare((startVoterId, startDistrictIndex) => {
+    clearCanvassTourOrder()
+    setRouteFlowEntryVisible(root, false)
+    ensureSectorMatchesRouteStart(root, startVoterId, startDistrictIndex)
+  })
   setDashboardCanvassRouteTourListener((orderedVoterIds) => {
+    clearIntelChecklistState()
     saveCanvassTourOrder(orderedVoterIds)
-    navigate('#/canvass/briefing')
+    setRouteFlowEntryVisible(root, orderedVoterIds.length > 0 && isDashboardCanvassRouteActiveOnMap())
+  })
+  setDashboardCanvassRouteStopsDepletedListener(() => {
+    clearCanvassTourOrder()
+    setRouteFlowEntryVisible(root, false)
   })
   setDashboardCanvassRouteNewTourUi(() => applyPriorityPanelCollapsed(root, true))
   mountDashboardMap(root)
   updateRouteEstimateDisplay(root, null)
+  setRouteFlowEntryVisible(root, isDashboardCanvassRouteActiveOnMap())
 
   root.addEventListener(
     'click',
@@ -404,6 +460,14 @@ export function bindDashboard(root: HTMLElement): void {
         void runDashboardCanvassRoute(vid || undefined, districtIndex, {
           resetExcludedPins: true,
         })
+        return
+      }
+      const routeFlowBtn = (e.target as HTMLElement).closest<HTMLElement>(
+        '[data-dashboard-open-route-flow]',
+      )
+      if (routeFlowBtn) {
+        e.preventDefault()
+        navigate('#/canvass/briefing')
         return
       }
       const t = (e.target as HTMLElement).closest<HTMLElement>('[data-goto]')
@@ -486,7 +550,12 @@ export function unmountDashboardBindings(): void {
   setDashboardRouteEstimateListener(null)
   setDashboardCanvassRoutePrepare(null)
   setDashboardCanvassRouteTourListener(null)
+  setDashboardCanvassRouteStopsDepletedListener(null)
   setDashboardCanvassRouteNewTourUi(null)
+  if (routeFlowAnnounceTimer != null) {
+    window.clearTimeout(routeFlowAnnounceTimer)
+    routeFlowAnnounceTimer = null
+  }
   dashboardBindingsAbort?.abort()
   dashboardBindingsAbort = null
 }
