@@ -178,6 +178,20 @@ const REGION_LABEL: Record<AdminRegion, string> = {
   sussex: 'Sussex',
 }
 
+/** Short codes for tactical status rail (synced with filters). */
+const WINDOW_CODE: Record<AdminWindow, string> = {
+  '24h': '24H',
+  '7d': '7D',
+  '30d': '30D',
+}
+
+const REGION_CODE: Record<AdminRegion, string> = {
+  all: 'ALL',
+  'new-castle': 'NC',
+  kent: 'KN',
+  sussex: 'SX',
+}
+
 const REGION_BASELINES: Record<AdminRegionOnly, RegionBaseline> = {
   'new-castle': {
     activeVolunteers: 146,
@@ -381,6 +395,10 @@ function escapeHtml(value: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+}
+
+function escapeAttr(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
 }
 
 function readState(): AdminViewState {
@@ -762,7 +780,7 @@ function renderKpis(snapshot: AdminSnapshot): string {
   return cards
     .map(
       (c, i) => `
-    <article class="admin-kpi-card admin-reveal" style="--admin-reveal-delay:${revealDelay(i)}">
+    <article class="admin-kpi-card admin-kpi-card--interactive admin-reveal" style="--admin-reveal-delay:${revealDelay(i)}">
       <p class="admin-kpi-card__label">${c.label}</p>
       <p class="admin-kpi-card__value">${c.value}</p>
       <p class="admin-kpi-card__meta">${c.meta}</p>
@@ -940,13 +958,23 @@ function renderVelocityChart(snapshot: AdminSnapshot, window: AdminWindow, regio
   const yC = padT + ih - (conversations[lastIdx]! / maxV) * ih
   const tickStart = velocityWindowTickStart(window)
 
+  const doorsCsv = doors.join(',')
+  const convCsv = conversations.join(',')
+  const nPts = doors.length
+
   return `
-    <div class="admin-chart admin-chart--velocity">
+    <div
+      class="admin-chart admin-chart--velocity"
+      data-v-doors="${doorsCsv}"
+      data-v-conv="${convCsv}"
+      data-v-n="${nPts}"
+    >
       <div class="admin-chart__legend" aria-hidden="true">
         <span class="admin-chart__legend-item admin-chart__legend-item--doors"><i></i> Doors knocked</span>
         <span class="admin-chart__legend-item admin-chart__legend-item--conv"><i></i> Conversations</span>
       </div>
-      <div class="admin-chart__clip">
+      <p class="admin-chart__hint">Drag or hover to scrub the series</p>
+      <div class="admin-chart__clip admin-chart__clip--interactive">
         <svg class="admin-chart__svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Cumulative doors and conversations across the selected window">
           <defs>
             <linearGradient id="adminVelArea" x1="0" y1="0" x2="0" y2="1">
@@ -988,6 +1016,15 @@ function renderVelocityChart(snapshot: AdminSnapshot, window: AdminWindow, regio
             <circle class="admin-chart__dot admin-chart__dot--conv" cx="${xLast.toFixed(1)}" cy="${yC.toFixed(1)}" r="4.2" />
           </g>
         </svg>
+        <div class="admin-chart__crosshair" aria-hidden="true">
+          <div class="admin-chart__vline"></div>
+        </div>
+        <div class="admin-chart__hit" tabindex="0" role="slider" aria-label="Scrub cumulative doors and conversations" aria-valuemin="1" aria-valuemax="${nPts}" aria-valuenow="${nPts}" aria-orientation="horizontal"></div>
+        <div class="admin-chart__pop" role="tooltip" hidden>
+          <div class="admin-chart__pop-line" data-pop-doors></div>
+          <div class="admin-chart__pop-line" data-pop-conv></div>
+          <div class="admin-chart__pop-meta" data-pop-step></div>
+        </div>
       </div>
       <div class="admin-chart__ticks" aria-hidden="true">
         <span>${tickStart}</span>
@@ -1010,7 +1047,7 @@ function renderChannelMixChart(snapshot: AdminSnapshot, state: AdminViewState): 
       const bg = CHANNEL_BAR_GRADIENT[row.key] ?? CHANNEL_BAR_GRADIENT.door
       const label = CHANNEL_CHART_SHORT[row.key] ?? row.label
       const share = shares[i]!.toFixed(1)
-      return `<span class="admin-channel-lift__seg" style="--lift-share:${shares[i]!.toFixed(3)}%;--lift-i:${i};background:${bg}" title="${escapeHtml(label)} · ${NUMBER_FMT.format(row.conversions)} commitments (${share}% of mix)"></span>`
+      return `<span class="admin-channel-lift__seg" data-lift-i="${i}" style="--lift-share:${shares[i]!.toFixed(3)}%;--lift-i:${i};background:${bg}" title="${escapeHtml(label)} · ${NUMBER_FMT.format(row.conversions)} commitments (${share}% of mix)"></span>`
     })
     .join('')
   const legend = rows
@@ -1018,7 +1055,7 @@ function renderChannelMixChart(snapshot: AdminSnapshot, state: AdminViewState): 
       const bg = CHANNEL_BAR_GRADIENT[row.key] ?? CHANNEL_BAR_GRADIENT.door
       const name = escapeHtml(CHANNEL_CHART_SHORT[row.key] ?? row.label)
       const share = shares[i]!.toFixed(1)
-      return `<li class="admin-channel-lift__row" style="--lift-i:${i}">
+      return `<li class="admin-channel-lift__row" data-lift-i="${i}" style="--lift-i:${i}">
         <span class="admin-channel-lift__swatch" style="background:${bg}" aria-hidden="true"></span>
         <span class="admin-channel-lift__name">${name}</span>
         <span class="admin-channel-lift__stat">${NUMBER_FMT.format(row.conversions)} <span class="admin-channel-lift__stat-note">cmts</span></span>
@@ -1029,7 +1066,7 @@ function renderChannelMixChart(snapshot: AdminSnapshot, state: AdminViewState): 
     .join('')
   const scope = `${WINDOW_LABEL[state.window]} · ${REGION_LABEL[state.region]}`
   return `
-    <div class="admin-channel-lift">
+    <div class="admin-channel-lift admin-channel-lift--interactive">
       <p class="admin-channel-lift__kicker">
         <span class="admin-channel-lift__total">${NUMBER_FMT.format(totalRaw)}</span>
         <span class="admin-channel-lift__kicker-label">commitments in channel mix · ${escapeHtml(scope)}</span>
@@ -1043,16 +1080,27 @@ function renderDistrictPaceChart(snapshot: AdminSnapshot, state: AdminViewState)
   const sorted = [...snapshot.districtRows].sort((a, b) => b.contactPace - a.contactPace).slice(0, 6)
   const scope = `${WINDOW_LABEL[state.window]} · ${REGION_LABEL[state.region]}`
   return `
-    <div class="admin-hbar-list" role="img" aria-label="District contact pace ranking · ${escapeHtml(scope)}">
+    <div class="admin-hbar-list admin-hbar-list--interactive" role="img" aria-label="District contact pace ranking · ${escapeHtml(scope)}">
       ${sorted
         .map(
           (row, i) => `
-        <div class="admin-hbar">
+        <div
+          class="admin-hbar"
+          tabindex="0"
+          data-hbar-name="${escapeAttr(row.district)}"
+          data-hbar-pace="${row.contactPace.toFixed(2)}"
+          data-hbar-ballots="${row.ballotPlans}"
+          data-hbar-persuasion="${row.persuasionIndex}"
+        >
           <span class="admin-hbar__label" title="${escapeHtml(row.district)}">${escapeHtml(shortDistrictLabel(row.district))}</span>
           <div class="admin-hbar__track">
             <span class="admin-hbar__fill" style="--w:${clamp(row.contactPace, 0, 100).toFixed(1)}%;--i:${i}"></span>
           </div>
           <span class="admin-hbar__pct">${formatPercent(row.contactPace)}</span>
+          <div class="admin-hbar__tip" role="tooltip" hidden>
+            <span class="admin-hbar__tip-title"></span>
+            <span class="admin-hbar__tip-body"></span>
+          </div>
         </div>`,
         )
         .join('')}
@@ -1063,24 +1111,24 @@ function renderAnalyticsCharts(snapshot: AdminSnapshot, state: AdminViewState): 
   const scopeLine = `${WINDOW_LABEL[state.window]} · ${REGION_LABEL[state.region]}`
   return `
     <div class="admin-analytics-grid grid gap-4 xl:grid-cols-2">
-      <article class="admin-panel admin-panel--chart p-4 admin-reveal" style="--admin-reveal-delay:0s">
+      <article class="admin-panel admin-panel--chart admin-panel--tactical-edge p-4 admin-reveal" style="--admin-reveal-delay:0s">
         <div class="admin-panel__header">
-          <h3>Field velocity</h3>
-          <p>${escapeHtml(scopeLine)} · cumulative doors vs. conversations · ${formatPercent(snapshot.conversationRate)} yield</p>
+          <h3>Velocity trace</h3>
+          <p>${escapeHtml(scopeLine)} · doors vs. conversations · yield ${formatPercent(snapshot.conversationRate)}</p>
         </div>
         ${renderVelocityChart(snapshot, state.window, state.region)}
       </article>
-      <article class="admin-panel admin-panel--chart admin-panel--channel-lift p-4 admin-reveal" style="--admin-reveal-delay:0.06s">
+      <article class="admin-panel admin-panel--chart admin-panel--channel-lift admin-panel--tactical-edge p-4 admin-reveal" style="--admin-reveal-delay:0.06s">
         <div class="admin-panel__header">
-          <h3>Channel lift</h3>
-          <p>${escapeHtml(scopeLine)} · share of commitments · conversion yield by program</p>
+          <h3>Channel mix</h3>
+          <p>${escapeHtml(scopeLine)} · commitment share · yield by program</p>
         </div>
         ${renderChannelMixChart(snapshot, state)}
       </article>
-      <article class="admin-panel admin-panel--chart admin-panel--chart-wide p-4 xl:col-span-2 admin-reveal" style="--admin-reveal-delay:0.11s">
+      <article class="admin-panel admin-panel--chart admin-panel--chart-wide admin-panel--tactical-edge p-4 xl:col-span-2 admin-reveal" style="--admin-reveal-delay:0.11s">
         <div class="admin-panel__header">
-          <h3>District pace leaders</h3>
-          <p>${escapeHtml(scopeLine)} · top districts by contact pace · ${NUMBER_FMT.format(snapshot.ballotPlans)} ballot plans in view</p>
+          <h3>District contact rate</h3>
+          <p>${escapeHtml(scopeLine)} · fastest fills · ${NUMBER_FMT.format(snapshot.ballotPlans)} ballot plans in stack</p>
         </div>
         ${renderDistrictPaceChart(snapshot, state)}
       </article>
@@ -1214,6 +1262,117 @@ function renderRecommendations(snapshot: AdminSnapshot): string {
     .join('')
 }
 
+function bindAdminChartsInteraction(root: HTMLElement): void {
+  const mount = root.querySelector<HTMLElement>('[data-admin-charts]')
+  if (!mount) return
+
+  mount.querySelectorAll<HTMLElement>('.admin-chart--velocity').forEach((chart) => {
+    const doorsRaw = chart.dataset.vDoors
+    const convRaw = chart.dataset.vConv
+    if (!doorsRaw || !convRaw) return
+    const doors = doorsRaw.split(',').map((x) => Number.parseFloat(x))
+    const conv = convRaw.split(',').map((x) => Number.parseFloat(x))
+    const n = doors.length
+    if (n < 2 || conv.length !== n) return
+
+    const hit = chart.querySelector<HTMLElement>('.admin-chart__hit')
+    const tip = chart.querySelector<HTMLElement>('.admin-chart__pop')
+    const vline = chart.querySelector<HTMLElement>('.admin-chart__vline')
+    const elDoors = tip?.querySelector<HTMLElement>('[data-pop-doors]')
+    const elConv = tip?.querySelector<HTMLElement>('[data-pop-conv]')
+    const elStep = tip?.querySelector<HTMLElement>('[data-pop-step]')
+    if (!hit || !tip || !vline || !elDoors || !elConv || !elStep) return
+
+    let lastIdx = n - 1
+
+    const apply = (idx: number) => {
+      const i = Math.max(0, Math.min(n - 1, idx))
+      lastIdx = i
+      vline.classList.add('admin-chart__vline--on')
+      const xPct = (i / Math.max(1, n - 1)) * 100
+      vline.style.left = `${xPct}%`
+      tip.style.left = `${xPct}%`
+      elDoors.textContent = `Doors ${NUMBER_FMT.format(doors[i]!)}`
+      elConv.textContent = `Conversations ${NUMBER_FMT.format(conv[i]!)}`
+      elStep.textContent = `Sample ${i + 1} of ${n}`
+      tip.hidden = false
+      hit.setAttribute('aria-valuenow', String(i + 1))
+    }
+
+    const hide = () => {
+      tip.hidden = true
+      vline.classList.remove('admin-chart__vline--on')
+    }
+
+    const fromClientX = (clientX: number) => {
+      const rect = hit.getBoundingClientRect()
+      const x = clientX - rect.left
+      const ratio = rect.width > 0 ? Math.max(0, Math.min(1, x / rect.width)) : 0
+      return Math.round(ratio * (n - 1))
+    }
+
+    const onMove = (e: PointerEvent) => {
+      apply(fromClientX(e.clientX))
+    }
+
+    hit.addEventListener('pointermove', onMove)
+    hit.addEventListener('pointerenter', onMove)
+    hit.addEventListener('pointerleave', hide)
+    hit.addEventListener('focus', () => apply(lastIdx))
+    hit.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        apply(lastIdx - 1)
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        apply(lastIdx + 1)
+      } else if (e.key === 'Escape') {
+        hide()
+      }
+    })
+  })
+
+  mount.querySelectorAll<HTMLElement>('.admin-channel-lift--interactive').forEach((lift) => {
+    const setHighlight = (idx: string | null) => {
+      lift.querySelectorAll<HTMLElement>('.admin-channel-lift__seg').forEach((el) => {
+        const on = idx !== null && el.dataset.liftI === idx
+        el.classList.toggle('admin-channel-lift__seg--dim', idx !== null && !on)
+        el.classList.toggle('admin-channel-lift__seg--hl', on)
+      })
+      lift.querySelectorAll<HTMLElement>('.admin-channel-lift__row').forEach((el) => {
+        const on = idx !== null && el.dataset.liftI === idx
+        el.classList.toggle('admin-channel-lift__row--dim', idx !== null && !on)
+        el.classList.toggle('admin-channel-lift__row--hl', on)
+      })
+    }
+
+    lift.addEventListener('mouseleave', () => setHighlight(null))
+    lift.querySelectorAll<HTMLElement>('[data-lift-i]').forEach((el) => {
+      el.addEventListener('mouseenter', () => setHighlight(el.dataset.liftI ?? null))
+    })
+  })
+
+  mount.querySelectorAll<HTMLElement>('.admin-hbar-list--interactive .admin-hbar').forEach((row) => {
+    const tip = row.querySelector<HTMLElement>('.admin-hbar__tip')
+    const titleEl = row.querySelector<HTMLElement>('.admin-hbar__tip-title')
+    const bodyEl = row.querySelector<HTMLElement>('.admin-hbar__tip-body')
+    if (!tip || !titleEl || !bodyEl) return
+    const show = () => {
+      titleEl.textContent = row.dataset.hbarName ?? ''
+      const pace = row.dataset.hbarPace ?? ''
+      const ballots = row.dataset.hbarBallots ?? ''
+      const persuasion = row.dataset.hbarPersuasion ?? ''
+      bodyEl.textContent = `${Number.parseFloat(pace).toFixed(1)}% pace · ${ballots} ballot plans · persuasion ${persuasion}`
+      tip.hidden = false
+    }
+    const hide = () => {
+      tip.hidden = true
+    }
+    row.addEventListener('mouseenter', show)
+    row.addEventListener('mouseleave', hide)
+  })
+}
+
 function revealAdminChartsIfInViewport(root: HTMLElement): void {
   const charts = root.querySelector<HTMLElement>('[data-admin-charts]')
   if (!charts) return
@@ -1254,6 +1413,8 @@ function syncDashboard(root: HTMLElement, state: AdminViewState): void {
   syncFilterButtons(root, state)
   setText(root, '[data-admin-window-label]', WINDOW_LABEL[state.window])
   setText(root, '[data-admin-region-label]', REGION_LABEL[state.region])
+  setText(root, '[data-admin-tactical-window]', `W:${WINDOW_CODE[state.window]}`)
+  setText(root, '[data-admin-tactical-sector]', `AO:${REGION_CODE[state.region]}`)
   setText(
     root,
     '[data-admin-generated-at]',
@@ -1280,6 +1441,7 @@ function syncDashboard(root: HTMLElement, state: AdminViewState): void {
   if (charts) {
     charts.innerHTML = renderAnalyticsCharts(snapshot, state)
     revealAdminChartsIfInViewport(root)
+    bindAdminChartsInteraction(root)
   }
 
   setText(root, '[data-admin-undecided]', NUMBER_FMT.format(snapshot.undecidedUniverse))
@@ -1295,27 +1457,44 @@ export function renderAdminDashboard(): string {
   const state = readState()
   const targetCount = getPriorityTargets().length
   return `
-    <main class="admin-command-center min-h-[calc(100dvh-4rem)] px-4 pb-12 pt-4 sm:px-6 lg:px-8">
-      <section class="admin-hero admin-hero--compact rounded-2xl p-4 sm:p-5">
+    <main class="admin-command-center admin-command-center--tactical min-h-[calc(100dvh-4rem)] px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+      <div class="admin-layout">
+      <div class="admin-tactical-rail admin-reveal" style="--admin-reveal-delay:0s" aria-label="Field operations status">
+        <div class="admin-tactical-rail__row">
+          <span class="admin-tactical-rail__status">
+            <span class="admin-tactical-rail__ping" aria-hidden="true"></span>
+            OPERATIONAL
+          </span>
+          <span class="admin-tactical-rail__sep" aria-hidden="true">//</span>
+          <span data-admin-tactical-window>W:${WINDOW_CODE[state.window]}</span>
+          <span class="admin-tactical-rail__sep" aria-hidden="true">//</span>
+          <span data-admin-tactical-sector>AO:${REGION_CODE[state.region]}</span>
+          <span class="admin-tactical-rail__sep" aria-hidden="true">//</span>
+          <span>LINK SECURE</span>
+        </div>
+        <p class="admin-tactical-rail__sub">OP-ID ATLAS-ADM · FIELD SITREP · SIMULATION GRADE</p>
+      </div>
+
+      <section class="admin-hero admin-hero--compact admin-hero--tactical rounded-xl p-4 sm:p-5 mt-3">
         <div class="admin-hero__grid" aria-hidden="true"></div>
         <div class="admin-hero__content">
-          <p class="admin-overline admin-reveal" style="--admin-reveal-delay:0s">Administrator command center</p>
+          <p class="admin-overline admin-reveal" style="--admin-reveal-delay:0s">Field command · live board</p>
           <div class="admin-hero__headline-row admin-reveal" style="--admin-reveal-delay:0.06s">
-            <h2>Volunteer campaign intelligence</h2>
-            <span class="admin-chip">Campaign voter data</span>
+            <h2 class="admin-hero__title">Campaign intelligence</h2>
+            <span class="admin-chip">LIVE · VOTER FILE</span>
           </div>
           <div class="admin-hero__meta admin-reveal" style="--admin-reveal-delay:0.12s">
-            <span><span class="material-symbols-outlined" aria-hidden="true">shield_lock</span> Access level: Admin</span>
-            <span><span class="material-symbols-outlined" aria-hidden="true">group</span> ${targetCount} priority households tracked</span>
-            <span><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Refreshed <span data-admin-generated-at>now</span></span>
+            <span><span class="material-symbols-outlined" aria-hidden="true">shield_lock</span> Lvl 5 · admin</span>
+            <span><span class="material-symbols-outlined" aria-hidden="true">satellite_alt</span> ${targetCount} priority HH</span>
+            <span><span class="material-symbols-outlined" aria-hidden="true">schedule</span> SYNC <span data-admin-generated-at>now</span></span>
           </div>
         </div>
       </section>
 
-      <section class="admin-panel mt-2 p-3 admin-reveal" style="--admin-reveal-delay:0s">
+      <section class="admin-panel admin-panel--filters admin-panel--tactical-edge mt-2 p-3 admin-reveal" style="--admin-reveal-delay:0s">
         <div class="admin-filter-grid">
           <div>
-            <p class="admin-section-label">Time window</p>
+            <p class="admin-section-label">Temporal AO</p>
             <div class="admin-filter-row">
               ${filterButton('24h', 'data-admin-window-btn', '24h', state.window === '24h')}
               ${filterButton('7d', 'data-admin-window-btn', '7d', state.window === '7d')}
@@ -1323,7 +1502,7 @@ export function renderAdminDashboard(): string {
             </div>
           </div>
           <div>
-            <p class="admin-section-label">Region focus</p>
+            <p class="admin-section-label">Sector filter</p>
             <div class="admin-filter-row">
               ${filterButton('Statewide', 'data-admin-region-btn', 'all', state.region === 'all')}
               ${filterButton('New Castle', 'data-admin-region-btn', 'new-castle', state.region === 'new-castle')}
@@ -1334,62 +1513,71 @@ export function renderAdminDashboard(): string {
         </div>
       </section>
 
-      <section class="admin-charts-spotlight mt-3" data-admin-charts aria-label="Live analytics charts"></section>
+      <section class="admin-charts-spotlight admin-charts-spotlight--tactical mt-3" aria-label="Tactical analytics charts">
+        <header class="admin-charts-spotlight__head admin-reveal" style="--admin-reveal-delay:0s">
+          <div class="admin-charts-spotlight__head-text">
+            <h2 class="admin-charts-spotlight__title">Analytics deck</h2>
+            <p class="admin-charts-spotlight__sub">Velocity trace · channel mix · district contact rate</p>
+          </div>
+          <span class="admin-charts-spotlight__badge"><span class="admin-charts-spotlight__badge-dot" aria-hidden="true"></span> Live series</span>
+        </header>
+        <div class="admin-charts-spotlight__body" data-admin-charts></div>
+      </section>
 
       <section class="mt-4 grid gap-4 xl:grid-cols-3">
-        <article class="admin-panel p-4 xl:col-span-2">
+        <article class="admin-panel admin-panel--tactical-edge p-4 xl:col-span-2">
           <div class="admin-panel__header admin-reveal" style="--admin-reveal-delay:0s">
-            <h3>Executive metrics</h3>
+            <h3>Command metrics</h3>
             <p><span data-admin-window-label>${WINDOW_LABEL[state.window]}</span> · <span data-admin-region-label>${REGION_LABEL[state.region]}</span></p>
           </div>
           <div class="admin-kpi-grid" data-admin-kpis></div>
         </article>
 
-        <article class="admin-panel p-4 admin-reveal" style="--admin-reveal-delay:0s">
+        <article class="admin-panel admin-panel--tactical-edge p-4 admin-reveal" style="--admin-reveal-delay:0s">
           <div class="admin-panel__header">
-            <h3>Strategic pulse</h3>
-            <p>Fast-look command stats</p>
+            <h3>Tactical pulse</h3>
+            <p>High-signal readouts</p>
           </div>
           <dl class="admin-quick-pulse">
             <div>
-              <dt>Undecided universe</dt>
+              <dt>Persuasion universe</dt>
               <dd data-admin-undecided>0</dd>
             </div>
             <div>
-              <dt>Daily burn</dt>
+              <dt>Burn rate / day</dt>
               <dd data-admin-burn>$0</dd>
             </div>
             <div>
-              <dt>Data lag cases</dt>
+              <dt>Data lag queue</dt>
               <dd data-admin-data-lag>0</dd>
             </div>
           </dl>
-          <p class="admin-footnote">Mirror this view with nightly voter-file QA before publishing strategic memos.</p>
+          <p class="admin-footnote">Reconcile against nightly voter-file QA before external comms.</p>
         </article>
       </section>
 
       <section class="mt-4 grid gap-4 xl:grid-cols-2">
-        <article class="admin-panel p-4">
+        <article class="admin-panel admin-panel--tactical-edge p-4">
           <div class="admin-panel__header admin-reveal" style="--admin-reveal-delay:0s">
-            <h3>Volunteer pipeline health</h3>
-            <p>Recruitment through captain readiness</p>
+            <h3>Pipeline readiness</h3>
+            <p>Recruit → captain depth</p>
           </div>
           <div data-admin-pipeline></div>
         </article>
-        <article class="admin-panel p-4">
+        <article class="admin-panel admin-panel--tactical-edge p-4">
           <div class="admin-panel__header admin-reveal" style="--admin-reveal-delay:0s">
-            <h3>Channel effectiveness</h3>
-            <p>Reach, conversion, and cost efficiency</p>
+            <h3>Channel yield</h3>
+            <p>Reach · conversion · unit cost</p>
           </div>
           <div class="admin-channel-list" data-admin-channels></div>
         </article>
       </section>
 
       <section class="mt-4">
-        <article class="admin-panel p-4">
+        <article class="admin-panel admin-panel--tactical-edge p-4">
           <div class="admin-panel__header admin-reveal" style="--admin-reveal-delay:0s">
-            <h3>District performance board</h3>
-            <p>Contact pace and persuasion pressure by district</p>
+            <h3>District battle board</h3>
+            <p>Pace · pressure · risk by turf</p>
           </div>
           <div class="admin-table-wrap">
             <table class="admin-table">
@@ -1409,52 +1597,53 @@ export function renderAdminDashboard(): string {
       </section>
 
       <section class="mt-4 grid gap-4 xl:grid-cols-2">
-        <article class="admin-panel p-4">
+        <article class="admin-panel admin-panel--tactical-edge p-4">
           <div class="admin-panel__header admin-reveal" style="--admin-reveal-delay:0s">
-            <h3>Volunteer leaderboard</h3>
-            <p>Top field outputs from current filters</p>
+            <h3>Field roster</h3>
+            <p>Top outputs · current filters</p>
           </div>
           <div class="admin-table-wrap">
             <table class="admin-table admin-table--compact">
               <thead>
                 <tr>
-                  <th>Volunteer</th>
+                  <th>Operator</th>
                   <th>Shifts</th>
                   <th>Contacts</th>
                   <th>Plans</th>
                   <th>Conv%</th>
-                  <th>Reliability</th>
+                  <th>Rel.</th>
                 </tr>
               </thead>
               <tbody data-admin-volunteer-rows></tbody>
             </table>
           </div>
         </article>
-        <article class="admin-panel p-4">
+        <article class="admin-panel admin-panel--tactical-edge p-4">
           <div class="admin-panel__header admin-reveal" style="--admin-reveal-delay:0s">
-            <h3>Operations schedule</h3>
-            <p>Upcoming execution blocks requiring staffing</p>
+            <h3>Scheduled ops</h3>
+            <p>Execution windows · staffing</p>
           </div>
           <div class="admin-operation-list" data-admin-operations></div>
         </article>
       </section>
 
       <section class="mt-4 grid gap-4 xl:grid-cols-2">
-        <article class="admin-panel p-4">
+        <article class="admin-panel admin-panel--tactical-edge p-4">
           <div class="admin-panel__header admin-reveal" style="--admin-reveal-delay:0s">
-            <h3>Risk and alert queue</h3>
-            <p>Highest-priority anomalies and blockers</p>
+            <h3>Alert stack</h3>
+            <p>Anomalies · blockers</p>
           </div>
           <div class="admin-alert-list" data-admin-alerts></div>
         </article>
-        <article class="admin-panel p-4">
+        <article class="admin-panel admin-panel--tactical-edge p-4">
           <div class="admin-panel__header admin-reveal" style="--admin-reveal-delay:0s">
-            <h3>Intelligent recommendations</h3>
-            <p>Suggested next actions from current telemetry</p>
+            <h3>Recommended COA</h3>
+            <p>Next moves from telemetry</p>
           </div>
           <ul class="admin-recommendation-list" data-admin-recommendations></ul>
         </article>
       </section>
+      </div>
     </main>
   `
 }
